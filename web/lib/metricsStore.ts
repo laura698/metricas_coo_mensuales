@@ -16,8 +16,13 @@ export function getExcelBlobPrefix(): string {
   return `${dir}/excel`;
 }
 
+function getBlobToken(): string | undefined {
+  const t = process.env.BLOB_READ_WRITE_TOKEN?.trim();
+  return t || undefined;
+}
+
 export async function saveExcelBufferToBlob(pathname: string, buffer: Buffer): Promise<{ url: string }> {
-  const token = process.env.BLOB_READ_WRITE_TOKEN;
+  const token = getBlobToken();
   if (!token) {
     throw new Error("Falta BLOB_READ_WRITE_TOKEN");
   }
@@ -65,7 +70,7 @@ async function tryLoadFromBlob(token: string): Promise<MetricsFile | null> {
  * Si la red al Blob falla o supera el tiempo máximo, se usa `data/metrics.json` del despliegue.
  */
 export async function loadMetricsUnified(): Promise<{ data: MetricsFile; source: MetricsSource }> {
-  const token = process.env.BLOB_READ_WRITE_TOKEN;
+  const token = getBlobToken();
   if (token) {
     const fromBlob = await tryLoadFromBlob(token);
     if (fromBlob) {
@@ -77,7 +82,7 @@ export async function loadMetricsUnified(): Promise<{ data: MetricsFile; source:
 }
 
 export async function saveMetricsToBlob(data: MetricsFile): Promise<{ url: string }> {
-  const token = process.env.BLOB_READ_WRITE_TOKEN;
+  const token = getBlobToken();
   if (!token) {
     throw new Error("Falta BLOB_READ_WRITE_TOKEN");
   }

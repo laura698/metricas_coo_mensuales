@@ -29,7 +29,7 @@ export async function persistMetricsToCloud(
   metrics: unknown,
   periodIdForExcel: string
 ): Promise<PersistMetricsResult> {
-  if (!process.env.BLOB_READ_WRITE_TOKEN) {
+  if (!process.env.BLOB_READ_WRITE_TOKEN?.trim()) {
     return { ok: false, error: "Falta BLOB_READ_WRITE_TOKEN en el servidor (Vercel)." };
   }
   if (!validateMetricsFile(metrics)) {
@@ -56,9 +56,16 @@ export async function persistMetricsToCloud(
     return { ok: true, excelFullUrl, excelMonthUrl };
   } catch (e) {
     console.error(e);
+    const raw =
+      e instanceof Error
+        ? e.message
+        : typeof e === "string"
+          ? e
+          : "Error desconocido";
+    const hint = raw.slice(0, 280);
     return {
       ok: false,
-      error: "No se pudo guardar en el almacenamiento. Revisa el token y la cuota de Blob.",
+      error: `No se pudo guardar en Blob: ${hint}${raw.length > 280 ? "…" : ""} Si el mensaje habla de tamaño o límite, vuelve a desplegar tras actualizar el proyecto (límite de Server Actions ampliado).`,
     };
   }
 }

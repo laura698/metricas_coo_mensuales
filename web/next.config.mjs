@@ -5,6 +5,12 @@ const basePath = (process.env.NEXT_BASE_PATH || "").replace(/\/$/, "") || undefi
 
 const nextConfig = {
   reactStrictMode: true,
+  /** Server Actions: el JSON de métricas puede superar el límite por defecto (~1 MB). */
+  experimental: {
+    serverActions: {
+      bodySizeLimit: "8mb",
+    },
+  },
   ...(basePath ? { basePath, assetPrefix: basePath } : {}),
 };
 
