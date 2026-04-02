@@ -1,0 +1,286 @@
+{
+  "currentPeriodId": "2026-03",
+  "periods": {
+    "2026-02": {
+      "label": "FEB 2026",
+      "footerTitle": "Reporte Operativo · Febrero 2026",
+      "kpis": [
+        {
+          "label": "Ingresos mensuales",
+          "value": "12.800$",
+          "meta": "Meta: 45.000 $ · referencia",
+          "progressPct": 85,
+          "variant": "amber"
+        },
+        {
+          "label": "Costos operativos",
+          "value": "12.100$",
+          "meta": "Presupuesto: 30.000 $",
+          "progressPct": 88,
+          "variant": "green"
+        },
+        {
+          "label": "Margen operativo",
+          "value": "700$",
+          "meta": "Meta: 15.000 $",
+          "progressPct": 75,
+          "variant": "amber"
+        },
+        {
+          "label": "Cobros pendientes",
+          "value": "3.900$",
+          "meta": "Meta: < 5.000 $",
+          "progressPct": 55,
+          "variant": "amber"
+        }
+      ],
+      "semaforos": [
+        {
+          "id": "entregas",
+          "title": "Entregas a tiempo",
+          "cadence": "Mensual",
+          "headline": "65%",
+          "status": "red",
+          "statusLabel": "Crítico",
+          "progressBar": {
+            "fillPct": 65,
+            "labelRight": "65 / 90%",
+            "minLabel": "0%",
+            "midLabel": "Meta 90%",
+            "maxLabel": "100%"
+          },
+          "details": [
+            { "key": "Entregas totales", "value": "180" },
+            { "key": "Entregadas a tiempo", "value": "117" },
+            { "key": "Con retraso", "value": "63" }
+          ]
+        }
+      ],
+      "charts": {
+        "util": [78, 22],
+        "entregas": [65, 35],
+        "retraso": [35, 65],
+        "horasEstReal": [80, 20]
+      },
+      "chartSubtitles": {
+        "entregas": "117 a tiempo · 63 con retraso",
+        "retraso": "63 con retraso de 180 totales",
+        "horasEstReal": "640 h reales · 800 h estimadas"
+      },
+      "projects": [],
+      "projectFilterCounts": { "all": 0, "verde": 0, "amarillo": 0, "rojo": 0 },
+      "ingresos": [],
+      "transversales": [],
+      "gastos": [],
+      "resultado": {
+        "ingresos": 12800,
+        "gastos": 12100,
+        "resultado": 700,
+        "note": "Datos de referencia (feb).",
+        "positive": true
+      }
+    },
+    "2026-03": {
+      "label": "MAR 2026",
+      "footerTitle": "Reporte Operativo · Marzo 2026",
+      "kpis": [
+        {
+          "label": "Ingresos mensuales",
+          "value": "13.665$",
+          "meta": "Meta: 45.000 $ · 88.9%",
+          "progressPct": 88.9,
+          "variant": "amber"
+        },
+        {
+          "label": "Costos operativos",
+          "value": "12.662$",
+          "meta": "Presupuesto: 30.000 $ · 93%",
+          "progressPct": 93,
+          "variant": "green"
+        },
+        {
+          "label": "Margen operativo",
+          "value": "1.003$",
+          "meta": "Meta: 15.000 $ · 80%",
+          "progressPct": 80,
+          "variant": "amber"
+        },
+        {
+          "label": "Cobros pendientes",
+          "value": "4.327$",
+          "meta": "Meta: < 5.000 $ · Alta exposición",
+          "progressPct": 63,
+          "variant": "red"
+        }
+      ],
+      "semaforos": [
+        {
+          "id": "entregas",
+          "title": "Entregas a tiempo",
+          "cadence": "Mensual",
+          "headline": "62,5%",
+          "status": "red",
+          "statusLabel": "Crítico",
+          "progressBar": {
+            "fillPct": 62.5,
+            "labelRight": "62,5 / 90%",
+            "minLabel": "0%",
+            "midLabel": "Meta 90%",
+            "maxLabel": "100%"
+          },
+          "details": [
+            { "key": "Entregas totales", "value": "200" },
+            { "key": "Entregadas a tiempo", "value": "125" },
+            { "key": "Con retraso", "value": "75" }
+          ]
+        },
+        {
+          "id": "riesgo",
+          "title": "Proyectos en riesgo",
+          "cadence": "Semanal",
+          "headline": "3",
+          "status": "red",
+          "statusLabel": "Crítico",
+          "details": [
+            { "key": "Proyectos activos", "value": "11" },
+            { "key": "En riesgo de retraso", "value": "3" },
+            { "key": "En riesgo de sobrecosto", "value": "1" },
+            { "key": "En riesgo de calidad", "value": "0" }
+          ]
+        },
+        {
+          "id": "horas_est_real",
+          "title": "Horas estimadas vs reales",
+          "cadence": "Semanal",
+          "headline": "+13 h",
+          "status": "amber",
+          "statusLabel": "Atención",
+          "progressBar": {
+            "fillPct": 60,
+            "labelRight": "13 / 5% max",
+            "minLabel": "0%",
+            "midLabel": "Meta ≤5%",
+            "maxLabel": "20%"
+          },
+          "details": [
+            { "key": "Horas estimadas (mes)", "value": "800 h" },
+            { "key": "Horas reales (mes)", "value": "662 h" },
+            { "key": "Desviación", "value": "+13 h" }
+          ]
+        },
+        {
+          "id": "satisfaccion",
+          "title": "Satisfacción del cliente",
+          "cadence": "Mensual",
+          "headline": "4.5/5",
+          "status": "green",
+          "statusLabel": "En meta",
+          "progressBar": {
+            "fillPct": 90,
+            "labelRight": "4.5 / 4.0",
+            "minLabel": "1",
+            "midLabel": "Meta 4.0",
+            "maxLabel": "5"
+          },
+          "details": [
+            { "key": "Clientes evaluados", "value": "5" },
+            { "key": "Tendencia", "value": "→ estable" }
+          ]
+        },
+        {
+          "id": "cobros_pend",
+          "title": "Cobros pendientes",
+          "cadence": "Mensual",
+          "headline": "4.327$",
+          "status": "red",
+          "statusLabel": "Crítico",
+          "details": [
+            { "key": "Facturas pendientes", "value": "4" },
+            { "key": "Katapulk", "value": "600 $" },
+            { "key": "Marketplace", "value": "859 $" },
+            { "key": "FastApi", "value": "2.100 $" },
+            { "key": "Uniferaq", "value": "768 $" }
+          ]
+        },
+        {
+          "id": "margen_sem",
+          "title": "Margen operativo",
+          "cadence": "Mensual",
+          "headline": "1.003$",
+          "status": "amber",
+          "statusLabel": "Atención",
+          "progressBar": {
+            "fillPct": 80,
+            "labelRight": "1k / 15k",
+            "minLabel": "0",
+            "midLabel": "Meta 15.000$",
+            "maxLabel": "20.000$"
+          },
+          "details": [
+            { "key": "Ingresos", "value": "13.665 $" },
+            { "key": "Costos operativos", "value": "12.662 $" },
+            { "key": "Margen %", "value": "7,3%" }
+          ]
+        }
+      ],
+      "charts": {
+        "util": [74, 26],
+        "entregas": [62.5, 37.5],
+        "retraso": [37.5, 62.5],
+        "horasEstReal": [82.75, 17.25]
+      },
+      "chartSubtitles": {
+        "entregas": "125 a tiempo · 75 con retraso",
+        "retraso": "75 con retraso de 200 totales",
+        "horasEstReal": "662 h reales · 800 h estimadas"
+      },
+      "projects": [
+        { "name": "Orishia", "client": "Producto propio", "status": "rojo" },
+        { "name": "La Valentina", "client": "El Lugar", "status": "amarillo" },
+        { "name": "El Lugar", "client": "El Lugar", "status": "verde" },
+        { "name": "FastApi", "client": "FastApi", "status": "verde" },
+        { "name": "Uniferaq", "client": "Uniferaq", "status": "amarillo" },
+        { "name": "Apacargo", "client": "Apacargo", "status": "amarillo" },
+        { "name": "Brinco", "client": "Brinco", "status": "verde" },
+        { "name": "Carambola", "client": "Carambola", "status": "amarillo" },
+        { "name": "Grin", "client": "RCC", "status": "amarillo" },
+        { "name": "Apk Almacenes El Lugar", "client": "El Lugar", "status": "amarillo" },
+        { "name": "CVI Web", "client": "CVI", "status": "verde" }
+      ],
+      "projectFilterCounts": { "all": 11, "verde": 4, "amarillo": 6, "rojo": 1 },
+      "ingresos": [
+        { "name": "Brinco", "amount": 1400 },
+        { "name": "Apacargo", "amount": 750 },
+        { "name": "El Lugar", "amount": 875 },
+        { "name": "Hubsnack", "amount": 120 },
+        { "name": "Pulmeg", "amount": 3000 },
+        { "name": "Onnia", "amount": 5546 },
+        { "name": "Carambola", "amount": 1974 }
+      ],
+      "transversales": [
+        { "label": "Diseño", "gasto": 320 },
+        { "label": "Desarrollo", "gasto": 2800 },
+        { "label": "Prueba", "gasto": 410 },
+        { "label": "PM", "gasto": 890 },
+        { "label": "DevOps", "gasto": 520 },
+        { "label": "COO", "gasto": 0 },
+        { "label": "CTO", "gasto": 0 },
+        { "label": "Ventas", "gasto": 180 }
+      ],
+      "gastos": [
+        { "name": "Oficina", "amount": 204 },
+        { "name": "Internet", "amount": 40 },
+        { "name": "Salario", "amount": 12150 },
+        { "name": "Transporte", "amount": 68 },
+        { "name": "Servidor", "amount": 200 }
+      ],
+      "resultado": {
+        "ingresos": 13665,
+        "gastos": 12662,
+        "resultado": 1003,
+        "note": "✅ El período cierra con superávit de 1.003 $. El salario representa el 95,9% del gasto total. Onnia y Pulmeg concentran el 63% de los ingresos.",
+        "positive": true
+      }
+    }
+  }
+}

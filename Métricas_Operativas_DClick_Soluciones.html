@@ -1,0 +1,913 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Reporte Operativo · Marzo 2026</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;1,9..40,300&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+<style>
+  :root {
+    --bg:        #F7F6F3;
+    --surface:   #FFFFFF;
+    --surface2:  #F0EEE9;
+    --ink:       #141412;
+    --ink2:      #6B6960;
+    --ink3:      #A8A49C;
+    --border:    rgba(20,20,18,.08);
+    --border2:   rgba(20,20,18,.14);
+    --green:     #2D6A1F;
+    --green-bg:  #E8F5E2;
+    --green-dot: #4CAF50;
+    --amber:     #7A4F08;
+    --amber-bg:  #FEF3DC;
+    --amber-dot: #F59E0B;
+    --red:       #8B1F1F;
+    --red-bg:    #FDEAEA;
+    --red-dot:   #EF4444;
+    --blue:      #1A4E8C;
+    --blue-bg:   #EAF1FB;
+    --radius:    12px;
+    --radius-sm: 7px;
+    --shadow:    0 1px 3px rgba(0,0,0,.06), 0 4px 16px rgba(0,0,0,.04);
+  }
+
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: 'DM Sans', sans-serif;
+    background: var(--bg);
+    color: var(--ink);
+    font-size: 14px;
+    line-height: 1.6;
+    min-height: 100vh;
+  }
+
+  /* ── LAYOUT ── */
+  .shell { max-width: 1160px; margin: 0 auto; padding: 40px 24px 80px; }
+
+  /* ── HEADER ── */
+  .topbar {
+    display: flex; align-items: flex-end; justify-content: space-between;
+    margin-bottom: 40px; flex-wrap: wrap; gap: 12px;
+  }
+  .topbar-left h1 {
+    font-size: 28px; font-weight: 500; letter-spacing: -.5px; line-height: 1.2;
+  }
+  .topbar-left p { color: var(--ink2); font-size: 14px; margin-top: 4px; font-weight: 300; }
+  .topbar-right { display: flex; align-items: center; gap: 10px; }
+  .pill {
+    display: inline-flex; align-items: center; gap: 6px;
+    padding: 6px 14px; border-radius: 99px;
+    border: 1px solid var(--border2); background: var(--surface);
+    font-size: 12px; color: var(--ink2); font-weight: 400;
+  }
+  .pill-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--green-dot); }
+  .period-badge {
+    padding: 6px 14px; border-radius: 99px; background: var(--ink);
+    color: #fff; font-size: 12px; font-family: 'DM Mono', monospace; letter-spacing: .03em;
+  }
+
+  /* ── SECTION LABELS ── */
+  .section-label {
+    font-size: 10px; font-weight: 500; letter-spacing: .12em; text-transform: uppercase;
+    color: var(--ink3); margin-bottom: 14px; margin-top: 40px;
+  }
+
+  /* ── KPI GRID ── */
+  .kpi-grid { display: grid; grid-template-columns: repeat(4,1fr); gap: 12px; }
+  @media(max-width:700px) { .kpi-grid { grid-template-columns: repeat(2,1fr); } }
+
+  .kpi-card {
+    background: var(--surface); border-radius: var(--radius);
+    padding: 20px 20px 16px; border: 1px solid var(--border);
+    box-shadow: var(--shadow); position: relative; overflow: hidden;
+    transition: transform .18s ease, box-shadow .18s ease;
+  }
+  .kpi-card:hover { transform: translateY(-2px); box-shadow: 0 4px 20px rgba(0,0,0,.09); }
+  .kpi-card::before {
+    content: ''; position: absolute; top: 0; left: 0; right: 0; height: 3px;
+    border-radius: var(--radius) var(--radius) 0 0;
+  }
+  .kpi-card.green::before { background: var(--green-dot); }
+  .kpi-card.amber::before { background: var(--amber-dot); }
+  .kpi-card.red::before   { background: var(--red-dot); }
+
+  .kpi-label { font-size: 11px; color: var(--ink2); font-weight: 400; margin-bottom: 8px; }
+  .kpi-value { font-size: 26px; font-weight: 500; letter-spacing: -.8px; line-height: 1; margin-bottom: 8px; }
+  .kpi-meta  { font-size: 11px; color: var(--ink3); margin-bottom: 10px; }
+
+  .mini-bar { height: 4px; background: var(--surface2); border-radius: 99px; overflow: hidden; }
+  .mini-bar-fill { height: 100%; border-radius: 99px; transition: width 1s cubic-bezier(.4,0,.2,1); }
+
+  /* ── SEMÁFORO DASHBOARD ── */
+  .sem-grid { display: grid; grid-template-columns: repeat(2,1fr); gap: 12px; }
+  @media(max-width:700px) { .sem-grid { grid-template-columns: 1fr; } }
+
+  .sem-card {
+    background: var(--surface); border-radius: var(--radius);
+    border: 1px solid var(--border); box-shadow: var(--shadow);
+    padding: 0; overflow: hidden;
+    transition: transform .18s ease, box-shadow .18s ease; cursor: pointer;
+  }
+  .sem-card:hover { transform: translateY(-2px); box-shadow: 0 6px 24px rgba(0,0,0,.1); }
+  .sem-card.expanded { grid-column: span 1; }
+
+  .sem-header {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 18px 20px; gap: 12px;
+  }
+  .sem-header-left { display: flex; align-items: center; gap: 12px; flex: 1; min-width: 0; }
+  .sem-icon {
+    width: 36px; height: 36px; border-radius: 9px; flex-shrink: 0;
+    display: flex; align-items: center; justify-content: center; font-size: 16px;
+  }
+  .sem-title  { font-size: 13px; font-weight: 500; line-height: 1.3; }
+  .sem-cadence { font-size: 10px; color: var(--ink3); margin-top: 2px; text-transform: uppercase; letter-spacing: .08em; }
+
+  .sem-right { display: flex; align-items: center; gap: 14px; flex-shrink: 0; }
+  .sem-value { font-family: 'DM Mono', monospace; font-size: 18px; font-weight: 500; letter-spacing: -.5px; }
+  .status-pill {
+    display: inline-flex; align-items: center; gap: 5px;
+    padding: 4px 10px; border-radius: 99px; font-size: 11px; font-weight: 500;
+    white-space: nowrap;
+  }
+  .status-pill .dot { width: 6px; height: 6px; border-radius: 50%; }
+
+  .status-pill.green { background: var(--green-bg); color: var(--green); }
+  .status-pill.green .dot { background: var(--green-dot); }
+  .status-pill.amber { background: var(--amber-bg); color: var(--amber); }
+  .status-pill.amber .dot { background: var(--amber-dot); }
+  .status-pill.red   { background: var(--red-bg);   color: var(--red); }
+  .status-pill.red   .dot { background: var(--red-dot); }
+
+  .chevron { color: var(--ink3); font-size: 11px; transition: transform .25s ease; }
+  .sem-card.open .chevron { transform: rotate(180deg); }
+
+  .sem-detail {
+    border-top: 1px solid var(--border); padding: 16px 20px 20px;
+    display: none; animation: fadeSlide .22s ease;
+  }
+  .sem-card.open .sem-detail { display: block; }
+
+  @keyframes fadeSlide {
+    from { opacity: 0; transform: translateY(-6px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+
+  .sem-progress-row {
+    display: flex; align-items: center; gap: 12px; margin-bottom: 14px;
+  }
+  .sem-progress-bar {
+    flex: 1; height: 6px; background: var(--surface2); border-radius: 99px; overflow: hidden;
+  }
+  .sem-progress-fill { height: 100%; border-radius: 99px; }
+  .sem-progress-labels {
+    display: flex; justify-content: space-between; font-size: 11px; color: var(--ink3);
+  }
+
+  .detail-row {
+    display: flex; justify-content: space-between; align-items: center;
+    padding: 8px 0; border-bottom: 1px solid var(--border); font-size: 12px;
+  }
+  .detail-row:last-child { border-bottom: none; padding-bottom: 0; }
+  .detail-key { color: var(--ink2); }
+  .detail-val { font-weight: 500; font-family: 'DM Mono', monospace; font-size: 12px; }
+
+  .detail-note {
+    margin-top: 12px; padding: 10px 14px; border-radius: var(--radius-sm);
+    font-size: 12px; line-height: 1.55; color: var(--ink2);
+    background: var(--surface2); border-left: 3px solid transparent;
+  }
+  .detail-note.green { border-color: var(--green-dot); }
+  .detail-note.amber { border-color: var(--amber-dot); }
+  .detail-note.red   { border-color: var(--red-dot); }
+
+  /* ── PROYECTOS ── */
+  .proj-table-wrap {
+    background: var(--surface); border-radius: var(--radius);
+    border: 1px solid var(--border); box-shadow: var(--shadow); overflow: hidden;
+  }
+  .proj-filters {
+    padding: 16px 20px; border-bottom: 1px solid var(--border);
+    display: flex; gap: 8px; flex-wrap: wrap; align-items: center;
+  }
+  .filter-btn {
+    padding: 5px 12px; border-radius: 99px; border: 1px solid var(--border2);
+    background: transparent; font-family: 'DM Sans',sans-serif; font-size: 12px;
+    color: var(--ink2); cursor: pointer; transition: all .15s ease;
+  }
+  .filter-btn:hover { background: var(--surface2); }
+  .filter-btn.active { background: var(--ink); color: #fff; border-color: var(--ink); }
+  .filter-label { font-size: 11px; color: var(--ink3); text-transform: uppercase; letter-spacing: .08em; margin-right: 4px; }
+
+  table { width: 100%; border-collapse: collapse; }
+  thead th {
+    padding: 11px 16px; font-size: 10px; font-weight: 500; text-align: left;
+    text-transform: uppercase; letter-spacing: .08em; color: var(--ink3);
+    background: var(--surface2); border-bottom: 1px solid var(--border);
+  }
+  tbody tr { border-bottom: 1px solid var(--border); transition: background .12s; }
+  tbody tr:last-child { border-bottom: none; }
+  tbody tr:hover { background: var(--bg); }
+  tbody tr[data-hidden="true"] { display: none; }
+  td { padding: 13px 16px; font-size: 13px; vertical-align: middle; }
+
+  .proj-name { font-weight: 500; }
+  .proj-client { color: var(--ink2); font-size: 12px; }
+  .proj-obs { color: var(--ink2); font-size: 12px; line-height: 1.5; max-width: 280px; }
+
+  .avance-cell { min-width: 90px; }
+  .avance-num { font-family: 'DM Mono', monospace; font-size: 12px; font-weight: 500; margin-bottom: 5px; }
+  .avance-bar { height: 4px; background: var(--surface2); border-radius: 99px; overflow: hidden; width: 70px; }
+  .avance-fill { height: 100%; border-radius: 99px; }
+
+  /* ── CHARTS SECTION ── */
+  .charts-grid { display: grid; grid-template-columns: repeat(3,1fr); gap: 12px; }
+  @media(max-width:800px) { .charts-grid { grid-template-columns: 1fr; } }
+  .chart-card {
+    background: var(--surface); border-radius: var(--radius);
+    border: 1px solid var(--border); box-shadow: var(--shadow); padding: 20px;
+  }
+  .chart-card.wide { grid-column: span 3; }
+  @media(max-width:800px) { .chart-card.wide { grid-column: span 1; } }
+  .chart-title { font-size: 13px; font-weight: 500; margin-bottom: 4px; }
+  .chart-sub   { font-size: 11px; color: var(--ink3); margin-bottom: 16px; }
+  .chart-wrap  { position: relative; }
+
+  /* ── SUMMARY BAR ── */
+  .summary-bar {
+    display: flex; gap: 12px; flex-wrap: wrap; margin-bottom: 4px;
+  }
+  .summ-item {
+    display: flex; align-items: center; gap: 8px;
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: var(--radius-sm); padding: 10px 16px;
+    font-size: 13px; flex: 1; min-width: 120px;
+  }
+  .summ-dot { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; }
+  .summ-count { font-size: 22px; font-weight: 500; font-family: 'DM Mono', monospace; }
+  .summ-lbl   { font-size: 11px; color: var(--ink2); }
+
+  /* ── FINANZAS ── */
+  .fin-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  @media(max-width:760px) { .fin-grid { grid-template-columns: 1fr; } }
+  .fin-card {
+    background: var(--surface); border-radius: var(--radius);
+    border: 1px solid var(--border); box-shadow: var(--shadow); overflow: hidden;
+  }
+  .fin-card-header {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 16px 20px; border-bottom: 1px solid var(--border); gap: 12px; flex-wrap: wrap;
+  }
+  .fin-card-title { display: flex; align-items: center; gap: 10px; }
+  .fin-icon {
+    width: 32px; height: 32px; border-radius: 8px; display: flex;
+    align-items: center; justify-content: center; font-size: 15px; font-weight: 600; flex-shrink: 0;
+  }
+  .fin-title { font-size: 13px; font-weight: 500; }
+  .fin-sub   { font-size: 11px; color: var(--ink3); margin-top: 1px; }
+  .fin-total-badge {
+    font-family: 'DM Mono', monospace; font-size: 14px; font-weight: 500;
+    padding: 5px 12px; border-radius: 99px;
+  }
+  .fin-total-badge.green { background: var(--green-bg); color: var(--green); }
+  .fin-total-badge.red   { background: var(--red-bg);   color: var(--red); }
+  .fin-table { width: 100%; border-collapse: collapse; }
+  .fin-table thead th {
+    padding: 9px 16px; font-size: 10px; font-weight: 500; text-align: left;
+    text-transform: uppercase; letter-spacing: .08em; color: var(--ink3);
+    background: var(--surface2); border-bottom: 1px solid var(--border);
+  }
+  .fin-table thead th.right { text-align: right; }
+  .fin-table tbody tr { border-bottom: 1px solid var(--border); transition: background .1s; }
+  .fin-table tbody tr:last-child { border-bottom: none; }
+  .fin-table tbody tr:hover { background: var(--bg); }
+  .fin-table td { padding: 10px 16px; font-size: 12.5px; vertical-align: middle; }
+  .fin-table td.right { text-align: right; }
+  .fin-table td.mono  { font-family: 'DM Mono', monospace; font-size: 12px; }
+  .fin-table td.muted-row { color: var(--ink3); font-style: italic; }
+  .fin-table tfoot tr { border-top: 1.5px solid var(--border2); background: var(--surface2); }
+  .fin-table tfoot td { padding: 11px 16px; font-size: 12.5px; }
+  .fin-table tfoot td.right { text-align: right; }
+  .fin-bar-wrap { display: flex; align-items: center; gap: 8px; justify-content: flex-end; }
+  .fin-bar { height: 4px; border-radius: 99px; min-width: 2px; flex-shrink: 0; }
+  .fin-bar-wrap span { font-family: 'DM Mono', monospace; font-size: 11px; color: var(--ink2); min-width: 36px; text-align: right; }
+  .resultado-card {
+    border-radius: var(--radius); padding: 20px 24px;
+    border: 1px solid var(--border); box-shadow: var(--shadow);
+  }
+  .red-result { background: var(--red-bg); border-color: rgba(139,31,31,.12); }
+  .resultado-label {
+    font-size: 10px; font-weight: 500; letter-spacing: .1em; text-transform: uppercase;
+    color: var(--red); margin-bottom: 16px;
+  }
+  .resultado-equation { display: flex; align-items: center; gap: 16px; flex-wrap: wrap; margin-bottom: 16px; }
+  .eq-item { text-align: center; }
+  .eq-label { font-size: 10px; color: var(--ink3); text-transform: uppercase; letter-spacing: .06em; margin-bottom: 4px; }
+  .eq-val   { font-family: 'DM Mono', monospace; font-size: 17px; font-weight: 500; }
+  .green-val { color: var(--green); }
+  .red-val   { color: var(--red); }
+  .loss-val  { color: var(--red); font-size: 20px; }
+  .eq-op { font-size: 20px; color: var(--ink3); font-weight: 300; }
+  .resultado-note {
+    font-size: 12px; color: var(--red); line-height: 1.6;
+    padding: 10px 14px; background: rgba(255,255,255,.55);
+    border-radius: var(--radius-sm); border-left: 3px solid var(--red-dot);
+  }
+
+  /* ── FOOTER ── */
+  .footer {
+    margin-top: 56px; padding-top: 20px; border-top: 1px solid var(--border);
+    display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px;
+    font-size: 11px; color: var(--ink3);
+  }
+
+  /* ── SEMÁFORO 3 COLORES ── */
+  .semaforo {
+    display: inline-flex; align-items: center; gap: 5px;
+    background: #1a1a18; border-radius: 99px;
+    padding: 5px 10px;
+  }
+  .sem-luz {
+    width: 12px; height: 12px; border-radius: 50%;
+    transition: opacity .2s;
+  }
+  .sem-luz.off { opacity: 0.15; }
+  .sem-luz.rojo   { background: #EF4444; box-shadow: 0 0 6px rgba(239,68,68,.7); }
+  .sem-luz.amarillo { background: #F59E0B; box-shadow: 0 0 6px rgba(245,158,11,.7); }
+  .sem-luz.verde  { background: #4CAF50; box-shadow: 0 0 6px rgba(76,175,80,.7); }
+
+
+  .fade-in { opacity: 0; transform: translateY(12px); animation: fadeIn .5s ease forwards; }
+  @keyframes fadeIn { to { opacity: 1; transform: translateY(0); } }
+  .fade-in:nth-child(1){animation-delay:.05s} .fade-in:nth-child(2){animation-delay:.1s}
+  .fade-in:nth-child(3){animation-delay:.15s} .fade-in:nth-child(4){animation-delay:.2s}
+  .fade-in:nth-child(5){animation-delay:.25s} .fade-in:nth-child(6){animation-delay:.3s}
+  .fade-in:nth-child(7){animation-delay:.35s} .fade-in:nth-child(8){animation-delay:.4s}
+</style>
+</head>
+<body>
+<div class="shell">
+
+  <!-- HEADER -->
+  <div class="topbar fade-in">
+    <div class="topbar-left">
+      <h1>Reporte operativo</h1>
+      <p>Panel de control COO · Revisión mensual y semanal</p>
+    </div>
+    <div class="topbar-right">
+      <span class="pill"><span class="pill-dot"></span>En vivo</span>
+      <span class="period-badge">MAR 2026</span>
+    </div>
+  </div>
+
+
+
+  <!-- MÉTRICAS FINANCIERAS -->
+  <div class="section-label">Métricas financieras</div>
+  <div class="kpi-grid">
+    <div class="kpi-card amber fade-in">
+      <div class="kpi-label">Ingresos mensuales</div>
+      <div class="kpi-value">13.665$</div>
+      <div class="kpi-meta">Meta: 45.000 $ · 88.9%</div>
+      <div class="mini-bar"><div class="mini-bar-fill" style="width:0%;background:var(--amber-dot)" data-target="88.9"></div></div>
+    </div>
+    <div class="kpi-card green fade-in">
+      <div class="kpi-label">Costos operativos</div>
+      <div class="kpi-value">12.662$</div>
+      <div class="kpi-meta">Presupuesto: 30.000 $ · 93%</div>
+      <div class="mini-bar"><div class="mini-bar-fill" style="width:0%;background:var(--green-dot)" data-target="93"></div></div>
+    </div>
+    <div class="kpi-card amber fade-in">
+      <div class="kpi-label">Margen operativo</div>
+      <div class="kpi-value">1.003$</div>
+      <div class="kpi-meta">Meta: 15.000 $ · 80%</div>
+      <div class="mini-bar"><div class="mini-bar-fill" style="width:0%;background:var(--amber-dot)" data-target="80"></div></div>
+    </div>
+    <div class="kpi-card red fade-in">
+      <div class="kpi-label">Cobros pendientes</div>
+      <div class="kpi-value">4.327$</div>
+      <div class="kpi-meta">Meta: &lt; 5.000 $ · Alta exposición</div>
+      <div class="mini-bar"><div class="mini-bar-fill" style="width:0%;background:var(--red-dot)" data-target="63"></div></div>
+    </div>
+  </div>
+
+  <!-- SEMÁFOROS INTERACTIVOS -->
+  <div class="section-label">Dashboard de semáforos · haz clic para expandir</div>
+  <div class="sem-grid" id="sem-grid">
+
+    <!-- UTILIZACIÓN -->
+    <div class="sem-card fade-in" onclick="toggleSem(this)">
+      <div class="sem-header">
+        <div class="sem-header-left">
+          <div class="sem-icon" style="background:#EAF1FB">⚡</div>
+          <div>
+            <div class="sem-title">Utilización del equipo</div>
+            <div class="sem-cadence">Semanal</div>
+          </div>
+        </div>
+        <div class="sem-right">
+          <span class="sem-value">74%</span>
+          <span class="status-pill amber"><span class="dot"></span>Atención</span>
+          <span class="chevron">▼</span>
+        </div>
+      </div>
+      <div class="sem-detail">
+        <div class="sem-progress-row">
+          <div class="sem-progress-bar"><div class="sem-progress-fill" style="width:74%;background:var(--amber-dot)"></div></div>
+          <span style="font-size:11px;color:var(--ink3);flex-shrink:0">74 / 80%</span>
+        </div>
+        <div class="sem-progress-labels"><span>0%</span><span>Meta 80%</span><span>100%</span></div>
+        <div style="height:12px"></div>
+        <div class="detail-row"><span class="detail-key">Horas productivas</span><span class="detail-val">592 h</span></div>
+        <div class="detail-row"><span class="detail-key">Horas totales disponibles</span><span class="detail-val">800 h</span></div>
+        <div class="detail-row"><span class="detail-key">Diferencia vs meta</span><span class="detail-val">−6 p.p.</span></div>
+        <div class="detail-row"><span class="detail-key">Tendencia</span><span class="detail-val">↓ −4% vs feb</span></div>
+        <div class="detail-note amber">Hay capacidad ociosa. Revisar asignación de proyectos y cobertura de ventas para reducir la brecha.</div>
+      </div>
+    </div>
+
+    <!-- ENTREGAS A TIEMPO -->
+    <div class="sem-card fade-in" onclick="toggleSem(this)">
+      <div class="sem-header">
+        <div class="sem-header-left">
+          <div class="sem-icon" style="background:#FDEAEA">📅</div>
+          <div>
+            <div class="sem-title">Entregas a tiempo</div>
+            <div class="sem-cadence">Mensual</div>
+          </div>
+        </div>
+        <div class="sem-right">
+          <span class="sem-value">62,5%</span>
+          <span class="status-pill red"><span class="dot"></span>Crítico</span>
+          <span class="chevron">▼</span>
+        </div>
+      </div>
+      <div class="sem-detail">
+        <div class="sem-progress-row">
+          <div class="sem-progress-bar"><div class="sem-progress-fill" style="width:62.5%;background:var(--red-dot)"></div></div>
+          <span style="font-size:11px;color:var(--ink3);flex-shrink:0">62,5 / 90%</span>
+        </div>
+        <div class="sem-progress-labels"><span>0%</span><span>Meta 90%</span><span>100%</span></div>
+        <div style="height:12px"></div>
+        <div class="detail-row"><span class="detail-key">Entregas totales</span><span class="detail-val">200</span></div>
+        <div class="detail-row"><span class="detail-key">Entregadas a tiempo</span><span class="detail-val">125</span></div>
+        <div class="detail-row"><span class="detail-key">Con retraso</span><span class="detail-val">75</span></div>
+      </div>
+    </div>
+
+    <!-- PROYECTOS EN RIESGO -->
+    <div class="sem-card fade-in" onclick="toggleSem(this)">
+      <div class="sem-header">
+        <div class="sem-header-left">
+          <div class="sem-icon" style="background:#FDEAEA">⚠️</div>
+          <div>
+            <div class="sem-title">Proyectos en riesgo</div>
+            <div class="sem-cadence">Semanal</div>
+          </div>
+        </div>
+        <div class="sem-right">
+          <span class="sem-value">3</span>
+          <span class="status-pill red"><span class="dot"></span>Crítico</span>
+          <span class="chevron">▼</span>
+        </div>
+      </div>
+      <div class="sem-detail">
+        <div class="detail-row"><span class="detail-key">Proyectos activos</span><span class="detail-val">11</span></div>
+        <div class="detail-row"><span class="detail-key">En riesgo de retraso</span><span class="detail-val">3</span></div>
+        <div class="detail-row"><span class="detail-key">En riesgo de sobrecosto</span><span class="detail-val">1</span></div>
+        <div class="detail-row"><span class="detail-key">En riesgo de calidad</span><span class="detail-val">0</span></div>
+
+      </div>
+    </div>
+
+    <!-- HORAS EST. VS REAL -->
+    <div class="sem-card fade-in" onclick="toggleSem(this)">
+      <div class="sem-header">
+        <div class="sem-header-left">
+          <div class="sem-icon" style="background:#FEF3DC">⏱</div>
+          <div>
+            <div class="sem-title">Horas estimadas vs reales</div>
+            <div class="sem-cadence">Semanal</div>
+          </div>
+        </div>
+        <div class="sem-right">
+          <span class="sem-value">+13 h</span>
+          <span class="status-pill amber"><span class="dot"></span>Atención</span>
+          <span class="chevron">▼</span>
+        </div>
+      </div>
+      <div class="sem-detail">
+        <div class="sem-progress-row">
+          <div class="sem-progress-bar"><div class="sem-progress-fill" style="width:60%;background:var(--amber-dot)"></div></div>
+          <span style="font-size:11px;color:var(--ink3);flex-shrink:0">13 / 5% max</span>
+        </div>
+        <div class="sem-progress-labels"><span>0%</span><span>Meta ≤5%</span><span>20%</span></div>
+        <div style="height:12px"></div>
+        <div class="detail-row"><span class="detail-key">Horas estimadas (mes)</span><span class="detail-val">800 h</span></div>
+        <div class="detail-row"><span class="detail-key">Horas reales (mes)</span><span class="detail-val">662 h</span></div>
+        <div class="detail-row"><span class="detail-key">Desviación</span><span class="detail-val">+13 h</span></div>
+
+      </div>
+    </div>
+
+    <!-- SATISFACCIÓN CLIENTE -->
+    <div class="sem-card fade-in" onclick="toggleSem(this)">
+      <div class="sem-header">
+        <div class="sem-header-left">
+          <div class="sem-icon" style="background:#E8F5E2">⭐</div>
+          <div>
+            <div class="sem-title">Satisfacción del cliente</div>
+            <div class="sem-cadence">Mensual</div>
+          </div>
+        </div>
+        <div class="sem-right">
+          <span class="sem-value">4.5/5</span>
+          <span class="status-pill green"><span class="dot"></span>En meta</span>
+          <span class="chevron">▼</span>
+        </div>
+      </div>
+      <div class="sem-detail">
+        <div class="sem-progress-row">
+          <div class="sem-progress-bar"><div class="sem-progress-fill" style="width:90%;background:var(--green-dot)"></div></div>
+          <span style="font-size:11px;color:var(--ink3);flex-shrink:0">4.5 / 4.0</span>
+        </div>
+        <div class="sem-progress-labels"><span>1</span><span>Meta 4.0</span><span>5</span></div>
+        <div style="height:12px"></div>
+        <div class="detail-row"><span class="detail-key">Clientes evaluados</span><span class="detail-val">5</span></div>
+        <div class="detail-row"><span class="detail-key">Tendencia</span><span class="detail-val">→ estable</span></div>
+      </div>
+    </div>
+
+    <!-- COBROS PENDIENTES -->
+    <div class="sem-card fade-in" onclick="toggleSem(this)">
+      <div class="sem-header">
+        <div class="sem-header-left">
+          <div class="sem-icon" style="background:#FDEAEA">💰</div>
+          <div>
+            <div class="sem-title">Cobros pendientes</div>
+            <div class="sem-cadence">Mensual</div>
+          </div>
+        </div>
+        <div class="sem-right">
+          <span class="sem-value">4.327$</span>
+          <span class="status-pill red"><span class="dot"></span>Crítico</span>
+          <span class="chevron">▼</span>
+        </div>
+      </div>
+      <div class="sem-detail">
+        <div class="detail-row"><span class="detail-key">Facturas pendientes</span><span class="detail-val">4</span></div>
+        <div class="detail-row"><span class="detail-key">Katapulk</span><span class="detail-val">600 $</span></div>
+        <div class="detail-row"><span class="detail-key">Marketplace</span><span class="detail-val">859 $</span></div>
+        <div class="detail-row"><span class="detail-key">FastApi</span><span class="detail-val">2.100 $</span></div>
+        <div class="detail-row"><span class="detail-key">Uniferaq</span><span class="detail-val">768 $</span></div>
+      </div>
+    </div>
+
+    <!-- MARGEN OPERATIVO -->
+    <div class="sem-card fade-in" onclick="toggleSem(this)">
+      <div class="sem-header">
+        <div class="sem-header-left">
+          <div class="sem-icon" style="background:#FEF3DC">📊</div>
+          <div>
+            <div class="sem-title">Margen operativo</div>
+            <div class="sem-cadence">Mensual</div>
+          </div>
+        </div>
+        <div class="sem-right">
+          <span class="sem-value">1.003$</span>
+          <span class="status-pill amber"><span class="dot"></span>Atención</span>
+          <span class="chevron">▼</span>
+        </div>
+      </div>
+      <div class="sem-detail">
+        <div class="sem-progress-row">
+          <div class="sem-progress-bar"><div class="sem-progress-fill" style="width:80%;background:var(--amber-dot)"></div></div>
+          <span style="font-size:11px;color:var(--ink3);flex-shrink:0">1k / 15k</span>
+        </div>
+        <div class="sem-progress-labels"><span>0</span><span>Meta 15.000$</span><span>20.000$</span></div>
+        <div style="height:12px"></div>
+        <div class="detail-row"><span class="detail-key">Ingresos</span><span class="detail-val">13.665 $</span></div>
+        <div class="detail-row"><span class="detail-key">Costos operativos</span><span class="detail-val">12.662 $</span></div>
+        <div class="detail-row"><span class="detail-key">Margen %</span><span class="detail-val">7,3%</span></div>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- GRÁFICAS DE EQUIPO -->
+  <div class="section-label">Métricas de equipo · visualización</div>
+  <div class="charts-grid">
+    <div class="chart-card">
+      <div class="chart-title">Utilización del equipo</div>
+      <div class="chart-sub">Productivo vs disponible</div>
+      <div class="chart-wrap" style="height:160px"><canvas id="c-util"></canvas></div>
+    </div>
+    <div class="chart-card">
+      <div class="chart-title">Entregas a tiempo</div>
+      <div class="chart-sub">125 a tiempo · 75 con retraso</div>
+      <div class="chart-wrap" style="height:160px"><canvas id="c-entregas"></canvas></div>
+    </div>
+    <div class="chart-card">
+      <div class="chart-title">Retraso del mes</div>
+      <div class="chart-sub">75 con retraso de 200 totales</div>
+      <div class="chart-wrap" style="height:160px"><canvas id="c-retrab"></canvas></div>
+    </div>
+    <div class="chart-card wide">
+      <div class="chart-title">Tendencia mensual</div>
+      <div class="chart-sub">Utilización del equipo vs entregas a tiempo (%)</div>
+      <div class="chart-wrap" style="height:200px"><canvas id="c-trend"></canvas></div>
+    </div>
+  </div>
+
+  <!-- PROYECTOS -->
+  <div class="section-label">Listado de proyectos</div>
+  <div class="proj-table-wrap fade-in">
+    <div class="proj-filters">
+      <span class="filter-label">Filtrar</span>
+      <button class="filter-btn active" onclick="filterProj('all',this)">Todos (11)</button>
+      <button class="filter-btn" onclick="filterProj('verde',this)">🟢 En curso (4)</button>
+      <button class="filter-btn" onclick="filterProj('amarillo',this)">🟡 Atención (6)</button>
+      <button class="filter-btn" onclick="filterProj('rojo',this)">🔴 Crítico (1)</button>
+    </div>
+    <table>
+      <thead>
+        <tr>
+          <th>Proyecto</th>
+          <th>Cliente</th>
+          <th>Estado (Semáforo)</th>
+        </tr>
+      </thead>
+      <tbody id="proj-tbody">
+        <tr data-status="rojo">
+          <td><div class="proj-name">Orishia</div></td>
+          <td><div class="proj-client">Producto propio</div></td>
+          <td><div class="semaforo"><span class="sem-luz rojo"></span><span class="sem-luz amarillo off"></span><span class="sem-luz verde off"></span></div></td>
+        </tr>
+        <tr data-status="amarillo">
+          <td><div class="proj-name">La Valentina</div></td>
+          <td><div class="proj-client">El Lugar</div></td>
+          <td><div class="semaforo"><span class="sem-luz rojo off"></span><span class="sem-luz amarillo"></span><span class="sem-luz verde off"></span></div></td>
+        </tr>
+        <tr data-status="verde">
+          <td><div class="proj-name">El Lugar</div></td>
+          <td><div class="proj-client">El Lugar</div></td>
+          <td><div class="semaforo"><span class="sem-luz rojo off"></span><span class="sem-luz amarillo off"></span><span class="sem-luz verde"></span></div></td>
+        </tr>
+        <tr data-status="verde">
+          <td><div class="proj-name">FastApi</div></td>
+          <td><div class="proj-client">FastApi</div></td>
+          <td><div class="semaforo"><span class="sem-luz rojo off"></span><span class="sem-luz amarillo off"></span><span class="sem-luz verde"></span></div></td>
+        </tr>
+        <tr data-status="amarillo">
+          <td><div class="proj-name">Uniferaq</div></td>
+          <td><div class="proj-client">Uniferaq</div></td>
+          <td><div class="semaforo"><span class="sem-luz rojo off"></span><span class="sem-luz amarillo"></span><span class="sem-luz verde off"></span></div></td>
+        </tr>
+        <tr data-status="amarillo">
+          <td><div class="proj-name">Apacargo</div></td>
+          <td><div class="proj-client">Apacargo</div></td>
+          <td><div class="semaforo"><span class="sem-luz rojo off"></span><span class="sem-luz amarillo"></span><span class="sem-luz verde off"></span></div></td>
+        </tr>
+        <tr data-status="verde">
+          <td><div class="proj-name">Brinco</div></td>
+          <td><div class="proj-client">Brinco</div></td>
+          <td><div class="semaforo"><span class="sem-luz rojo off"></span><span class="sem-luz amarillo off"></span><span class="sem-luz verde"></span></div></td>
+        </tr>
+        <tr data-status="amarillo">
+          <td><div class="proj-name">Carambola</div></td>
+          <td><div class="proj-client">Carambola</div></td>
+          <td><div class="semaforo"><span class="sem-luz rojo off"></span><span class="sem-luz amarillo"></span><span class="sem-luz verde off"></span></div></td>
+        </tr>
+        <tr data-status="amarillo">
+          <td><div class="proj-name">Grin</div></td>
+          <td><div class="proj-client">RCC</div></td>
+          <td><div class="semaforo"><span class="sem-luz rojo off"></span><span class="sem-luz amarillo"></span><span class="sem-luz verde off"></span></div></td>
+        </tr>
+        <tr data-status="amarillo">
+          <td><div class="proj-name">Apk Almacenes El Lugar</div></td>
+          <td><div class="proj-client">El Lugar</div></td>
+          <td><div class="semaforo"><span class="sem-luz rojo off"></span><span class="sem-luz amarillo"></span><span class="sem-luz verde off"></span></div></td>
+        </tr>
+        <tr data-status="verde">
+          <td><div class="proj-name">CVI Web</div></td>
+          <td><div class="proj-client">CVI</div></td>
+          <td><div class="semaforo"><span class="sem-luz rojo off"></span><span class="sem-luz amarillo off"></span><span class="sem-luz verde"></span></div></td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <!-- INGRESOS Y GASTOS -->
+  <div class="section-label">Ingresos y gastos · desglose del mes</div>
+  <div class="fin-grid">
+
+    <!-- INGRESOS -->
+    <div class="fin-card">
+      <div class="fin-card-header">
+        <div class="fin-card-title">
+          <span class="fin-icon" style="background:#E8F5E2">↑</span>
+          <div>
+            <div class="fin-title">Ingresos</div>
+            <div class="fin-sub">Facturado por cliente</div>
+          </div>
+        </div>
+        <div class="fin-total-badge green">13.665,00 $</div>
+      </div>
+      <table class="fin-table">
+        <thead>
+          <tr>
+            <th>Cliente</th>
+            <th class="right">Facturado</th>
+            <th class="right">% del total</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr><td>Brinco</td>    <td class="right mono">1.400,00</td><td class="right"><div class="fin-bar-wrap"><div class="fin-bar" style="width:10.2%;background:var(--green-dot)"></div><span>10,2%</span></div></td></tr>
+          <tr><td>Apacargo</td>  <td class="right mono">750,00</td>  <td class="right"><div class="fin-bar-wrap"><div class="fin-bar" style="width:5.5%;background:var(--green-dot)"></div><span>5,5%</span></div></td></tr>
+          <tr><td>El Lugar</td>  <td class="right mono">875,00</td>  <td class="right"><div class="fin-bar-wrap"><div class="fin-bar" style="width:6.4%;background:var(--green-dot)"></div><span>6,4%</span></div></td></tr>
+          <tr><td>Hubsnack</td>  <td class="right mono">120,00</td>  <td class="right"><div class="fin-bar-wrap"><div class="fin-bar" style="width:0.9%;background:var(--green-dot)"></div><span>0,9%</span></div></td></tr>
+          <tr><td>Pulmeg</td>    <td class="right mono">3.000,00</td><td class="right"><div class="fin-bar-wrap"><div class="fin-bar" style="width:22.0%;background:var(--green-dot)"></div><span>22,0%</span></div></td></tr>
+          <tr><td>Onnia</td>     <td class="right mono">5.546,00</td><td class="right"><div class="fin-bar-wrap"><div class="fin-bar" style="width:40.6%;background:var(--green-dot)"></div><span>40,6%</span></div></td></tr>
+          <tr><td>Carambola</td> <td class="right mono">1.974,00</td><td class="right"><div class="fin-bar-wrap"><div class="fin-bar" style="width:14.4%;background:var(--green-dot)"></div><span>14,4%</span></div></td></tr>
+        </tbody>
+        <tfoot>
+          <tr>
+            <td><strong>Total ingresos</strong></td>
+            <td class="right mono"><strong>13.665,00</strong></td>
+            <td class="right"><strong>100%</strong></td>
+          </tr>
+        </tfoot>
+      </table>
+    </div>
+
+    <!-- GASTOS + RESULTADO -->
+    <div style="display:flex;flex-direction:column;gap:12px;">
+
+      <div class="fin-card">
+        <div class="fin-card-header">
+          <div class="fin-card-title">
+            <span class="fin-icon" style="background:var(--red-bg)">↓</span>
+            <div>
+              <div class="fin-title">Gastos operativos</div>
+              <div class="fin-sub">Costos del período</div>
+            </div>
+          </div>
+          <div class="fin-total-badge red">12.662,00 $</div>
+        </div>
+        <table class="fin-table">
+          <thead>
+            <tr>
+              <th>Concepto</th>
+              <th class="right">Importe</th>
+              <th class="right">% del total</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr><td>Oficina</td>    <td class="right mono">204,00</td>   <td class="right"><div class="fin-bar-wrap"><div class="fin-bar" style="width:1.6%;background:var(--red-dot)"></div><span>1,6%</span></div></td></tr>
+            <tr><td>Internet</td>   <td class="right mono">40,00</td>    <td class="right"><div class="fin-bar-wrap"><div class="fin-bar" style="width:0.3%;background:var(--red-dot)"></div><span>0,3%</span></div></td></tr>
+            <tr><td>Salario</td>    <td class="right mono">12.150,00</td><td class="right"><div class="fin-bar-wrap"><div class="fin-bar" style="width:95.9%;background:var(--red-dot)"></div><span>95,9%</span></div></td></tr>
+            <tr><td>Transporte</td> <td class="right mono">68,00</td>    <td class="right"><div class="fin-bar-wrap"><div class="fin-bar" style="width:0.5%;background:var(--red-dot)"></div><span>0,5%</span></div></td></tr>
+            <tr><td>Servidor</td>   <td class="right mono">200,00</td>   <td class="right"><div class="fin-bar-wrap"><div class="fin-bar" style="width:1.6%;background:var(--red-dot)"></div><span>1,6%</span></div></td></tr>
+          </tbody>
+          <tfoot>
+            <tr>
+              <td><strong>Total gastos</strong></td>
+              <td class="right mono"><strong>12.662,00</strong></td>
+              <td class="right"><strong>100%</strong></td>
+            </tr>
+          </tfoot>
+        </table>
+      </div>
+
+      <!-- RESULTADO NETO -->
+      <div class="resultado-card" style="background:var(--green-bg);border-color:rgba(45,106,31,.12)">
+        <div class="resultado-label" style="color:var(--green)">Resultado neto del período</div>
+        <div class="resultado-equation">
+          <div class="eq-item">
+            <div class="eq-label">Ingresos</div>
+            <div class="eq-val green-val">13.665,00 $</div>
+          </div>
+          <div class="eq-op">−</div>
+          <div class="eq-item">
+            <div class="eq-label">Gastos</div>
+            <div class="eq-val red-val">12.662,00 $</div>
+          </div>
+          <div class="eq-op">=</div>
+          <div class="eq-item">
+            <div class="eq-label">Resultado</div>
+            <div class="eq-val green-val" style="font-size:20px">+1.003,00 $</div>
+          </div>
+        </div>
+        <div class="resultado-note" style="color:var(--green);border-color:var(--green-dot)">
+          ✅ El período cierra con superávit de 1.003 $. El salario representa el 95,9% del gasto total. Onnia y Pulmeg concentran el 63% de los ingresos.
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- FOOTER -->
+  <div class="footer">
+    <span>Reporte Operativo · Marzo 2026</span>
+    <span>Generado automáticamente · Confidencial</span>
+  </div>
+
+</div>
+
+<script>
+  // ── MINI BARS ANIMATE ──
+  setTimeout(() => {
+    document.querySelectorAll('.mini-bar-fill').forEach(el => {
+      el.style.width = el.dataset.target + '%';
+    });
+  }, 300);
+
+  // ── TOGGLE SEMÁFORO ──
+  function toggleSem(card) {
+    card.classList.toggle('open');
+  }
+
+  // ── FILTRO PROYECTOS ──
+  function filterProj(status, btn) {
+    document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    document.querySelectorAll('#proj-tbody tr').forEach(tr => {
+      tr.dataset.hidden = (status !== 'all' && tr.dataset.status !== status) ? 'true' : 'false';
+    });
+  }
+
+  // ── DONUT CHARTS ──
+  function donut(id, vals, cols) {
+    new Chart(document.getElementById(id), {
+      type: 'doughnut',
+      data: { datasets: [{ data: vals, backgroundColor: cols, borderWidth: 0, hoverOffset: 4 }] },
+      options: {
+        responsive: true, maintainAspectRatio: false, cutout: '72%',
+        plugins: {
+          legend: { display: false },
+          tooltip: {
+            callbacks: { label: ctx => ` ${ctx.raw}%` }
+          }
+        },
+        animation: { animateRotate: true, duration: 900 }
+      }
+    });
+  }
+  donut('c-util',     [74, 26],       ['#4F8EF7','#E5E7EB']);
+  donut('c-entregas', [62.5, 37.5],   ['#4CAF50','#EF4444']);
+  donut('c-retrab',   [37.5, 62.5],   ['#F59E0B','#E5E7EB']);
+
+  // ── TREND LINE ──
+  new Chart(document.getElementById('c-trend'), {
+    type: 'line',
+    data: {
+      labels: ['Mar'],
+      datasets: [
+        {
+          label: 'Utilización equipo',
+          data: [74],
+          borderColor: '#4F8EF7', backgroundColor: 'rgba(79,142,247,.08)',
+          borderWidth: 2, pointRadius: 6, pointBackgroundColor: '#4F8EF7',
+          fill: true, tension: 0.4
+        },
+        {
+          label: 'Entregas a tiempo',
+          data: [62.5],
+          borderColor: '#4CAF50', backgroundColor: 'rgba(76,175,80,.06)',
+          borderWidth: 2, pointRadius: 6, pointBackgroundColor: '#4CAF50',
+          fill: true, tension: 0.4
+        }
+      ]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      interaction: { mode: 'index', intersect: false },
+      plugins: {
+        legend: {
+          display: true, position: 'top', align: 'end',
+          labels: { boxWidth: 10, boxHeight: 10, borderRadius: 3, usePointStyle: false, padding: 16,
+            font: { family: "'DM Sans', sans-serif", size: 11 }, color: '#6B6960' }
+        },
+        tooltip: {
+          backgroundColor: '#141412', padding: 10, cornerRadius: 8,
+          titleFont: { family: "'DM Sans', sans-serif", size: 11 },
+          bodyFont:  { family: "'DM Mono', monospace", size: 12 },
+          callbacks: { label: ctx => `  ${ctx.dataset.label}: ${ctx.raw}%` }
+        }
+      },
+      scales: {
+        x: { grid: { display: false }, ticks: { font: { family: "'DM Sans', sans-serif", size: 11 }, color: '#A8A49C' } },
+        y: {
+          min: 0, max: 100, grid: { color: 'rgba(0,0,0,.05)' },
+          ticks: { callback: v => v + '%', font: { family: "'DM Mono', monospace", size: 10 }, color: '#A8A49C' }
+        }
+      },
+      animation: { duration: 1000 }
+    }
+  });
+</script>
+</body>
+</html>
