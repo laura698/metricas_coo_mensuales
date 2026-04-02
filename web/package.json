@@ -13,7 +13,7 @@
     "excel:import": "node scripts/excel-sync.mjs import"
   },
   "dependencies": {
-    "@vercel/blob": "^0.27.0",
+    "@vercel/blob": "^2.3.3",
     "chart.js": "^4.4.1",
     "lucide-react": "^1.7.0",
     "next": "^14.2.18",

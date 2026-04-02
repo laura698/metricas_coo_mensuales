@@ -1,4 +1,4 @@
-import { head, put } from "@vercel/blob";
+import { get, put } from "@vercel/blob";
 import { loadMetricsFromDisk } from "@/lib/metrics";
 import { normalizeMetricsFile } from "@/lib/normalizeMetrics";
 import type { MetricsFile } from "@/lib/types";
@@ -21,15 +21,19 @@ function getBlobToken(): string | undefined {
   return t || undefined;
 }
 
+/** Almacenes Blob en Vercel pueden ser solo privados: `public` falla con error explícito del API. */
+const BLOB_ACCESS = "private" as const;
+
 export async function saveExcelBufferToBlob(pathname: string, buffer: Buffer): Promise<{ url: string }> {
   const token = getBlobToken();
   if (!token) {
     throw new Error("Falta BLOB_READ_WRITE_TOKEN");
   }
   const blob = await put(pathname, buffer, {
-    access: "public",
+    access: BLOB_ACCESS,
     token,
     addRandomSuffix: false,
+    allowOverwrite: true,
     contentType: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
   });
   return { url: blob.url };
@@ -42,14 +46,18 @@ const BLOB_TOTAL_MS = 15_000;
 
 async function tryLoadFromBlobInner(token: string): Promise<MetricsFile | null> {
   try {
-    const meta = await head(getBlobPathname(), { token });
-    if (!meta?.url) return null;
+    const pathname = getBlobPathname();
     const ac = new AbortController();
     const kill = setTimeout(() => ac.abort(), BLOB_FETCH_MS);
     try {
-      const res = await fetch(meta.url, { signal: ac.signal });
-      if (!res.ok) return null;
-      return (await res.json()) as MetricsFile;
+      const result = await get(pathname, {
+        access: BLOB_ACCESS,
+        token,
+        abortSignal: ac.signal,
+      });
+      if (!result || result.statusCode !== 200 || !result.stream) return null;
+      const text = await new Response(result.stream).text();
+      return JSON.parse(text) as MetricsFile;
     } finally {
       clearTimeout(kill);
     }
@@ -88,9 +96,10 @@ export async function saveMetricsToBlob(data: MetricsFile): Promise<{ url: strin
   }
   const json = JSON.stringify(data);
   const blob = await put(getBlobPathname(), json, {
-    access: "public",
+    access: BLOB_ACCESS,
     token,
     addRandomSuffix: false,
+    allowOverwrite: true,
     contentType: "application/json",
   });
   return { url: blob.url };

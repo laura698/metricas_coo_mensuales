@@ -245,6 +245,8 @@ export default function MetricsApp({ initialData, initialSource = "" }: Props) {
                   <a href={persistExcelUrls.month} target="_blank" rel="noreferrer">
                     solo mes {selectedPeriodId || data.currentPeriodId}
                   </a>
+                  . Con almacén <strong>privado</strong>, el enlace puede no abrir en una pestaña nueva; descarga el
+                  fichero desde el apartado Storage / Blob en Vercel si hace falta.
                 </p>
               )}
             </div>
