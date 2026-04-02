@@ -4,6 +4,8 @@
  */
 import * as XLSX from "xlsx";
 import { gananciaIngresoRow } from "@/lib/ingresoProyecto";
+import { normalizeFacturaciones, parseFacturacionEstado } from "@/lib/facturaciones";
+import { clampPmRendimientoCarga, normalizePmEvaluaciones } from "@/lib/pmEvaluacion";
 import { normalizeTransversalRows } from "@/lib/transversales";
 import type { MetricsFile, PeriodBlock, ProjectRow, StatusTone } from "@/lib/types";
 
@@ -93,6 +95,24 @@ export function periodToAoA(p: PeriodBlock, periodId: string): (string | number)
   rows.push(["label", "gasto"]);
   for (const r of normalizeTransversalRows(p.transversales)) {
     rows.push([r.label, r.gasto]);
+  }
+  rows.push([]);
+  rows.push(["PM_EVAL"]);
+  rows.push(["nombre", "cantidadProyectos", "proyectosAsignados", "rendimientoCarga", "evaluacion"]);
+  for (const ev of p.pmEvaluaciones ?? []) {
+    rows.push([
+      ev.nombre,
+      ev.cantidadProyectos,
+      (ev.proyectosAsignados ?? []).join(" | "),
+      clampPmRendimientoCarga(ev.rendimientoCarga),
+      ev.evaluacion,
+    ]);
+  }
+  rows.push([]);
+  rows.push(["FACTURACIONES"]);
+  rows.push(["nombreProyecto", "aFacturar", "estado"]);
+  for (const f of p.facturaciones ?? []) {
+    rows.push([f.nombreProyecto, f.aFacturar, f.estado]);
   }
   rows.push([]);
   rows.push(["GASTOS"]);
@@ -206,6 +226,8 @@ export function parseMonthSheetToPeriod(
     },
     ingresos: [],
     transversales: [],
+    pmEvaluaciones: [],
+    facturaciones: [],
     gastos: [],
     resultado: {
       ingresos: 0,
@@ -345,9 +367,52 @@ export function parseMonthSheetToPeriod(
     while (i < rows.length) {
       const r = rows[i];
       const sec = cellStr(r?.[0]);
-      if (sec === "GASTOS") break;
+      if (sec === "GASTOS" || sec === "PM_EVAL" || sec === "FACTURACIONES") break;
       if (r && r.length >= 2) {
         period.transversales.push({ label: cellStr(r[0]), gasto: cellNum(r[1]) });
+      }
+      i++;
+    }
+  }
+
+  if (cellStr(rows[i]?.[0]) === "PM_EVAL") {
+    i += 2;
+    while (i < rows.length) {
+      const r = rows[i];
+      const secPm = cellStr(r?.[0]);
+      if (secPm === "GASTOS" || secPm === "FACTURACIONES") break;
+      if (r && r.length >= 2 && secPm !== "") {
+        const names = cellStr(r[2])
+          .split(/\s*\|\s*/)
+          .map((s) => s.trim())
+          .filter(Boolean);
+        const stated = cellNum(r[1]);
+        const len = r.length;
+        const evaluacion = len >= 5 ? cellStr(r[4]) : cellStr(r[3]);
+        const rendimientoCarga = clampPmRendimientoCarga(len >= 5 ? r[3] : undefined);
+        period.pmEvaluaciones.push({
+          nombre: cellStr(r[0]),
+          cantidadProyectos: stated || names.length,
+          proyectosAsignados: names,
+          rendimientoCarga,
+          evaluacion,
+        });
+      }
+      i++;
+    }
+  }
+
+  if (cellStr(rows[i]?.[0]) === "FACTURACIONES") {
+    i += 2;
+    while (i < rows.length) {
+      const r = rows[i];
+      if (cellStr(r?.[0]) === "GASTOS") break;
+      if (r && r.length >= 2 && cellStr(r?.[0]) !== "") {
+        period.facturaciones.push({
+          nombreProyecto: cellStr(r[0]),
+          aFacturar: cellNum(r[1]),
+          estado: parseFacturacionEstado(cellStr(r[2])),
+        });
       }
       i++;
     }
@@ -381,6 +446,8 @@ export function parseMonthSheetToPeriod(
   };
 
   period.transversales = normalizeTransversalRows(period.transversales);
+  period.pmEvaluaciones = normalizePmEvaluaciones(period.pmEvaluaciones);
+  period.facturaciones = normalizeFacturaciones(period.facturaciones);
 
   if (period.projects.length) {
     let v = 0,

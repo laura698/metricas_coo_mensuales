@@ -7,8 +7,23 @@ import {
   syncResultadoFromTables,
 } from "@/lib/chartSync";
 import { gananciaIngresoRow } from "@/lib/ingresoProyecto";
+import { FACTURACION_ESTADO_LABELS } from "@/lib/facturaciones";
+import { clampPmRendimientoCarga } from "@/lib/pmEvaluacion";
 import { normalizeTransversalRows } from "@/lib/transversales";
-import type { IngresoProyectoRow, KpiCard, MoneyRow, PeriodBlock, ProjectRow, SemaforoBlock, StatusTone } from "@/lib/types";
+import type {
+  FacturacionEstado,
+  FacturacionRow,
+  IngresoProyectoRow,
+  KpiCard,
+  MoneyRow,
+  PeriodBlock,
+  ProjectManagerEvalRow,
+  ProjectRow,
+  SemaforoBlock,
+  StatusTone,
+} from "@/lib/types";
+
+const FACTURACION_ESTADO_OPTS: FacturacionEstado[] = ["pendiente", "futuro", "nuevo"];
 
 const TONES: { value: StatusTone; label: string }[] = [
   { value: "green", label: "Verde" },
@@ -706,6 +721,237 @@ export default function PeriodEditor({ periodId, period, onChange }: Props) {
           }
         >
           + Proyecto
+        </button>
+      </div>
+
+      <div className="pe-section">
+        <h3 className="pe-h3">Facturaciones</h3>
+        <p style={{ fontSize: 12, color: "var(--ink2)", marginBottom: 10, maxWidth: "42rem" }}>
+          Proyecto, importe a facturar y estado: pendiente por facturar, factura a futuro o proyecto nuevo.
+        </p>
+        <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12 }}>
+          <thead>
+            <tr style={{ color: "var(--ink3)", textTransform: "uppercase", fontSize: 10 }}>
+              <th style={{ textAlign: "left", padding: "6px 8px" }}>Nombre del proyecto</th>
+              <th style={{ textAlign: "right", padding: "6px 8px", width: 120 }}>A facturar</th>
+              <th style={{ textAlign: "left", padding: "6px 8px", minWidth: 200 }}>Estado</th>
+              <th style={{ width: 40 }} />
+            </tr>
+          </thead>
+          <tbody>
+            {(period.facturaciones ?? []).map((row: FacturacionRow, fi: number) => (
+              <tr key={fi} style={{ borderTop: "1px solid var(--border)" }}>
+                <td style={{ padding: 6, verticalAlign: "top" }}>
+                  <input
+                    style={inp}
+                    value={row.nombreProyecto}
+                    onChange={(e) => {
+                      const facturaciones = [...(period.facturaciones ?? [])];
+                      facturaciones[fi] = { ...row, nombreProyecto: e.target.value };
+                      onChange({ ...period, facturaciones });
+                    }}
+                  />
+                </td>
+                <td style={{ padding: 6, verticalAlign: "top" }}>
+                  <input
+                    type="number"
+                    min={0}
+                    step="0.01"
+                    style={{ ...inp, textAlign: "right" }}
+                    value={row.aFacturar}
+                    onChange={(e) => {
+                      const facturaciones = [...(period.facturaciones ?? [])];
+                      facturaciones[fi] = {
+                        ...row,
+                        aFacturar: Math.max(0, Number(e.target.value) || 0),
+                      };
+                      onChange({ ...period, facturaciones });
+                    }}
+                  />
+                </td>
+                <td style={{ padding: 6, verticalAlign: "top" }}>
+                  <select
+                    style={inp}
+                    value={row.estado}
+                    onChange={(e) => {
+                      const facturaciones = [...(period.facturaciones ?? [])];
+                      facturaciones[fi] = {
+                        ...row,
+                        estado: e.target.value as FacturacionEstado,
+                      };
+                      onChange({ ...period, facturaciones });
+                    }}
+                  >
+                    {FACTURACION_ESTADO_OPTS.map((st) => (
+                      <option key={st} value={st}>
+                        {FACTURACION_ESTADO_LABELS[st]}
+                      </option>
+                    ))}
+                  </select>
+                </td>
+                <td style={{ padding: 6, verticalAlign: "top" }}>
+                  <button
+                    type="button"
+                    className="filter-btn"
+                    onClick={() => {
+                      const facturaciones = (period.facturaciones ?? []).filter((_, j) => j !== fi);
+                      onChange({ ...period, facturaciones });
+                    }}
+                  >
+                    ✕
+                  </button>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+        <button
+          type="button"
+          className="filter-btn"
+          style={{ marginTop: 10 }}
+          onClick={() =>
+            onChange({
+              ...period,
+              facturaciones: [
+                ...(period.facturaciones ?? []),
+                { nombreProyecto: "", aFacturar: 0, estado: "pendiente" },
+              ],
+            })
+          }
+        >
+          + Línea de facturación
+        </button>
+      </div>
+
+      <div className="pe-section">
+        <h3 className="pe-h3">Evaluación de las Project Manager</h3>
+        <p style={{ fontSize: 12, color: "var(--ink2)", marginBottom: 10, maxWidth: "42rem" }}>
+          Incluye puntuación de rendimiento y carga del PM en escala <strong>5 a 10</strong>, además de
+          proyectos (coma) y evaluación cualitativa.
+        </p>
+        <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12 }}>
+          <thead>
+            <tr style={{ color: "var(--ink3)", textTransform: "uppercase", fontSize: 10 }}>
+              <th style={{ textAlign: "left", padding: "6px 8px" }}>Nombre</th>
+              <th style={{ textAlign: "right", padding: "6px 8px", width: 100 }}>Cant.</th>
+              <th style={{ textAlign: "left", padding: "6px 8px" }}>Proyectos asignados</th>
+              <th style={{ textAlign: "right", padding: "6px 8px", width: 88 }}>5–10</th>
+              <th style={{ textAlign: "left", padding: "6px 8px" }}>Evaluación</th>
+              <th style={{ width: 40 }} />
+            </tr>
+          </thead>
+          <tbody>
+            {(period.pmEvaluaciones ?? []).map((row: ProjectManagerEvalRow, ei: number) => (
+              <tr key={ei} style={{ borderTop: "1px solid var(--border)" }}>
+                <td style={{ padding: 6, verticalAlign: "top" }}>
+                  <input
+                    style={inp}
+                    value={row.nombre}
+                    onChange={(e) => {
+                      const pmEvaluaciones = [...(period.pmEvaluaciones ?? [])];
+                      pmEvaluaciones[ei] = { ...row, nombre: e.target.value };
+                      onChange({ ...period, pmEvaluaciones });
+                    }}
+                  />
+                </td>
+                <td style={{ padding: 6, verticalAlign: "top" }}>
+                  <input
+                    type="number"
+                    min={0}
+                    style={{ ...inp, textAlign: "right" }}
+                    value={row.cantidadProyectos}
+                    onChange={(e) => {
+                      const pmEvaluaciones = [...(period.pmEvaluaciones ?? [])];
+                      pmEvaluaciones[ei] = {
+                        ...row,
+                        cantidadProyectos: Math.max(0, Math.floor(Number(e.target.value) || 0)),
+                      };
+                      onChange({ ...period, pmEvaluaciones });
+                    }}
+                  />
+                </td>
+                <td style={{ padding: 6, verticalAlign: "top" }}>
+                  <input
+                    style={inp}
+                    placeholder="Proyecto A, Proyecto B…"
+                    value={row.proyectosAsignados.join(", ")}
+                    onChange={(e) => {
+                      const parts = e.target.value
+                        .split(/[,]/)
+                        .map((s) => s.trim())
+                        .filter(Boolean);
+                      const pmEvaluaciones = [...(period.pmEvaluaciones ?? [])];
+                      pmEvaluaciones[ei] = { ...row, proyectosAsignados: parts };
+                      onChange({ ...period, pmEvaluaciones });
+                    }}
+                  />
+                </td>
+                <td style={{ padding: 6, verticalAlign: "top" }}>
+                  <input
+                    type="number"
+                    min={5}
+                    max={10}
+                    step={0.5}
+                    style={{ ...inp, textAlign: "right" }}
+                    value={row.rendimientoCarga}
+                    onChange={(e) => {
+                      const pmEvaluaciones = [...(period.pmEvaluaciones ?? [])];
+                      pmEvaluaciones[ei] = {
+                        ...row,
+                        rendimientoCarga: clampPmRendimientoCarga(e.target.value),
+                      };
+                      onChange({ ...period, pmEvaluaciones });
+                    }}
+                  />
+                </td>
+                <td style={{ padding: 6, verticalAlign: "top" }}>
+                  <input
+                    style={inp}
+                    value={row.evaluacion}
+                    onChange={(e) => {
+                      const pmEvaluaciones = [...(period.pmEvaluaciones ?? [])];
+                      pmEvaluaciones[ei] = { ...row, evaluacion: e.target.value };
+                      onChange({ ...period, pmEvaluaciones });
+                    }}
+                  />
+                </td>
+                <td style={{ padding: 6, verticalAlign: "top" }}>
+                  <button
+                    type="button"
+                    className="filter-btn"
+                    onClick={() => {
+                      const pmEvaluaciones = (period.pmEvaluaciones ?? []).filter((_, j) => j !== ei);
+                      onChange({ ...period, pmEvaluaciones });
+                    }}
+                  >
+                    ✕
+                  </button>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+        <button
+          type="button"
+          className="filter-btn"
+          style={{ marginTop: 10 }}
+          onClick={() =>
+            onChange({
+              ...period,
+              pmEvaluaciones: [
+                ...(period.pmEvaluaciones ?? []),
+                {
+                  nombre: "",
+                  cantidadProyectos: 0,
+                  proyectosAsignados: [],
+                  rendimientoCarga: 7,
+                  evaluacion: "",
+                },
+              ],
+            })
+          }
+        >
+          + Project Manager
         </button>
       </div>
 

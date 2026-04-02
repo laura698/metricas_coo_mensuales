@@ -1,4 +1,6 @@
 import type { MetricsFile, PeriodBlock } from "@/lib/types";
+import { normalizeFacturaciones } from "@/lib/facturaciones";
+import { normalizePmEvaluaciones } from "@/lib/pmEvaluacion";
 import { normalizeTransversalRows } from "@/lib/transversales";
 
 /** Rellena campos añadidos en versiones recientes (Blob/Excel antiguos). */
@@ -19,6 +21,8 @@ export function normalizePeriod(p: PeriodBlock): PeriodBlock {
     charts,
     chartSubtitles,
     transversales: normalizeTransversalRows(p.transversales),
+    facturaciones: normalizeFacturaciones(p.facturaciones),
+    pmEvaluaciones: normalizePmEvaluaciones(p.pmEvaluaciones),
   };
 }
 

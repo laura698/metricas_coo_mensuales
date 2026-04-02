@@ -14,6 +14,12 @@ const ROOT = path.join(__dirname, "..");
 const DATA_JSON = path.join(ROOT, "data", "metrics.json");
 const XLSX_PATH = path.join(ROOT, "métricas_coo.xlsx");
 
+function clampPmRendimientoCarga(v) {
+  const n = Number(v);
+  if (!Number.isFinite(n)) return 7;
+  return Math.min(10, Math.max(5, n));
+}
+
 const TRANSVERSAL_LABELS = [
   "Diseño",
   "Desarrollo",
@@ -159,6 +165,43 @@ function exportWorkbook(data) {
   }
   XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(transvRows), "Transversales");
 
+  const pmEvalRows = [
+    [
+      "periodId",
+      "nombre",
+      "cantidadProyectos",
+      "proyectosAsignados",
+      "rendimientoCarga",
+      "evaluacion",
+    ],
+  ];
+  for (const pid of Object.keys(data.periods).sort()) {
+    for (const ev of data.periods[pid].pmEvaluaciones || []) {
+      pmEvalRows.push([
+        pid,
+        ev.nombre ?? "",
+        ev.cantidadProyectos ?? 0,
+        (ev.proyectosAsignados || []).join(" | "),
+        clampPmRendimientoCarga(ev.rendimientoCarga),
+        ev.evaluacion ?? "",
+      ]);
+    }
+  }
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(pmEvalRows), "PmEvaluaciones");
+
+  const factRows = [["periodId", "nombreProyecto", "aFacturar", "estado"]];
+  for (const pid of Object.keys(data.periods).sort()) {
+    for (const f of data.periods[pid].facturaciones || []) {
+      factRows.push([
+        pid,
+        f.nombreProyecto ?? "",
+        f.aFacturar ?? 0,
+        f.estado ?? "pendiente",
+      ]);
+    }
+  }
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(factRows), "Facturaciones");
+
   const gasRows = [["periodId", "name", "amount"]];
   for (const pid of Object.keys(data.periods).sort()) {
     for (const r of data.periods[pid].gastos || []) {
@@ -212,6 +255,8 @@ function importWorkbook() {
   const transversalesSheet = wb.Sheets["Transversales"]
     ? parseSheetJson(wb.Sheets["Transversales"])
     : [];
+  const pmEvalSheet = wb.Sheets["PmEvaluaciones"] ? parseSheetJson(wb.Sheets["PmEvaluaciones"]) : [];
+  const factSheet = wb.Sheets["Facturaciones"] ? parseSheetJson(wb.Sheets["Facturaciones"]) : [];
   const gastos = parseSheetJson(wb.Sheets["Gastos"]);
   const resultado = parseSheetJson(wb.Sheets["Resultado"]);
 
@@ -222,6 +267,8 @@ function importWorkbook() {
   for (const r of projects) if (r.periodId) periodIds.add(String(r.periodId));
   for (const r of ingresos) if (r.periodId) periodIds.add(String(r.periodId));
   for (const r of transversalesSheet) if (r.periodId) periodIds.add(String(r.periodId));
+  for (const r of pmEvalSheet) if (r.periodId) periodIds.add(String(r.periodId));
+  for (const r of factSheet) if (r.periodId) periodIds.add(String(r.periodId));
   for (const r of gastos) if (r.periodId) periodIds.add(String(r.periodId));
   for (const r of resultado) if (r.periodId) periodIds.add(String(r.periodId));
 
@@ -254,6 +301,8 @@ function importWorkbook() {
       },
       ingresos: [],
       transversales: [],
+      pmEvaluaciones: [],
+      facturaciones: [],
       gastos: [],
       resultado: null,
     };
@@ -321,6 +370,32 @@ function importWorkbook() {
       });
     }
     period.transversales = normalizeTransversalRows(period.transversales);
+
+    for (const r of pmEvalSheet.filter((x) => String(x.periodId) === pid)) {
+      const names = String(r.proyectosAsignados ?? "")
+        .split(/\s*\|\s*/)
+        .map((s) => s.trim())
+        .filter(Boolean);
+      const qty = Number(r.cantidadProyectos) || 0;
+      period.pmEvaluaciones.push({
+        nombre: String(r.nombre ?? ""),
+        cantidadProyectos: qty || names.length,
+        proyectosAsignados: names,
+        rendimientoCarga: clampPmRendimientoCarga(r.rendimientoCarga),
+        evaluacion: String(r.evaluacion ?? ""),
+      });
+    }
+
+    for (const r of factSheet.filter((x) => String(x.periodId) === pid)) {
+      const st = String(r.estado ?? "pendiente").toLowerCase();
+      const estado =
+        st === "futuro" || st === "nuevo" ? st : "pendiente";
+      period.facturaciones.push({
+        nombreProyecto: String(r.nombreProyecto ?? ""),
+        aFacturar: Number(r.aFacturar) || 0,
+        estado,
+      });
+    }
 
     for (const r of gastos.filter((x) => String(x.periodId) === pid)) {
       period.gastos.push({ name: r.name, amount: Number(r.amount) || 0 });

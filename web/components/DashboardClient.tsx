@@ -16,6 +16,7 @@ import { Doughnut, Line } from "react-chartjs-2";
 import PeriodEditor from "@/components/PeriodEditor";
 import { parseHorasFromSemaforo } from "@/lib/horasChart";
 import { gananciaIngresoRow } from "@/lib/ingresoProyecto";
+import { FACTURACION_ESTADO_LABELS } from "@/lib/facturaciones";
 import { normalizeTransversalRows, transversalGastoTotal } from "@/lib/transversales";
 import type { MetricsFile, PeriodBlock, StatusTone } from "@/lib/types";
 
@@ -481,6 +482,64 @@ export default function DashboardClient({
         </div>
       </div>
 
+      <div className="section-label">Evaluación de las Project Manager</div>
+      <div className="fin-card pm-eval-section fade-in">
+        <div className="fin-card-header">
+          <div className="fin-card-title">
+            <span className="fin-icon" style={{ background: "#E8EEF9" }}>
+              PM
+            </span>
+            <div>
+              <div className="fin-title">Rendimiento y carga</div>
+              <div className="fin-sub">
+                Por persona · nota 5–10, proyectos asignados y evaluación del período
+              </div>
+            </div>
+          </div>
+        </div>
+        <div className="fin-scroll">
+          <table className="fin-table pm-eval-table">
+            <thead>
+              <tr>
+                <th>Nombre</th>
+                <th className="right">Cantidad de proyectos</th>
+                <th>Proyectos asignados</th>
+                <th className="right">Rend. y carga (5–10)</th>
+                <th>Evaluación</th>
+              </tr>
+            </thead>
+            <tbody>
+              {(period.pmEvaluaciones ?? []).length === 0 ? (
+                <tr>
+                  <td colSpan={5} style={{ color: "var(--ink3)", fontStyle: "italic" }}>
+                    No hay evaluaciones registradas para este período.
+                  </td>
+                </tr>
+              ) : (
+                period.pmEvaluaciones.map((row, i) => (
+                  <tr key={i}>
+                    <td style={{ fontWeight: 500 }}>{row.nombre}</td>
+                    <td className="right mono">{row.cantidadProyectos}</td>
+                    <td>
+                      {(row.proyectosAsignados ?? []).length > 0
+                        ? row.proyectosAsignados.join(", ")
+                        : "—"}
+                    </td>
+                    <td className="right mono">
+                      {Number(row.rendimientoCarga).toLocaleString("es-ES", {
+                        minimumFractionDigits: 0,
+                        maximumFractionDigits: 1,
+                      })}
+                    </td>
+                    <td>{row.evaluacion || "—"}</td>
+                  </tr>
+                ))
+              )}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
       {period.projects.length > 0 && (
         <>
           <div className="section-label">Listado de proyectos</div>
@@ -554,6 +613,51 @@ export default function DashboardClient({
           </div>
         </>
       )}
+
+      <div className="section-label">Facturaciones</div>
+      <div className="fin-card facturaciones-section fade-in">
+        <div className="fin-card-header">
+          <div className="fin-card-title">
+            <span className="fin-icon" style={{ background: "#F5F0E6" }}>
+              $
+            </span>
+            <div>
+              <div className="fin-title">Pendiente y planificación</div>
+              <div className="fin-sub">Importes a facturar por proyecto y estado</div>
+            </div>
+          </div>
+        </div>
+        <div className="fin-scroll">
+          <table className="fin-table facturaciones-table">
+            <thead>
+              <tr>
+                <th>Nombre del proyecto</th>
+                <th className="right">A facturar</th>
+                <th>Estado</th>
+              </tr>
+            </thead>
+            <tbody>
+              {(period.facturaciones ?? []).length === 0 ? (
+                <tr>
+                  <td colSpan={3} style={{ color: "var(--ink3)", fontStyle: "italic" }}>
+                    No hay líneas de facturación para este período.
+                  </td>
+                </tr>
+              ) : (
+                period.facturaciones.map((row, i) => (
+                  <tr key={i}>
+                    <td style={{ fontWeight: 500 }}>{row.nombreProyecto}</td>
+                    <td className="right mono">{fmtMoney(row.aFacturar)} $</td>
+                    <td>
+                      <span className="facturacion-estado-pill">{FACTURACION_ESTADO_LABELS[row.estado]}</span>
+                    </td>
+                  </tr>
+                ))
+              )}
+            </tbody>
+          </table>
+        </div>
+      </div>
 
       {period.ingresos.length > 0 && period.gastos.length > 0 && (
         <>
@@ -644,6 +748,7 @@ export default function DashboardClient({
                 <tbody>
                   {period.ingresos.map((row, i) => {
                     const pct = ingresoTotal ? (row.amount / ingresoTotal) * 100 : 0;
+                    const pctClamped = Math.min(100, Math.max(0, pct));
                     const gan = gananciaIngresoRow(row);
                     return (
                       <tr key={i}>
@@ -652,15 +757,19 @@ export default function DashboardClient({
                         <td className="right mono">{fmtMoney(row.gasto ?? 0)}</td>
                         <td className="right mono">{fmtMoney(gan)}</td>
                         <td className="right">
-                          <div className="fin-bar-wrap">
-                            <div
-                              className="fin-bar"
-                              style={{
-                                width: `${Math.max(2, pct)}%`,
-                                background: "var(--green-dot)",
-                              }}
-                            />
-                            <span>{pct.toLocaleString("es-ES", { maximumFractionDigits: 1 })}%</span>
+                          <div className="fin-bar-wrap fin-bar-wrap-track">
+                            <div className="fin-bar-track" aria-hidden="true">
+                              <div
+                                className="fin-bar-fill"
+                                style={{
+                                  width: `${pctClamped}%`,
+                                  background: pctClamped > 0 ? "var(--green-dot)" : "transparent",
+                                }}
+                              />
+                            </div>
+                            <span className="fin-pct">
+                              {pct.toLocaleString("es-ES", { maximumFractionDigits: 1 })}%
+                            </span>
                           </div>
                         </td>
                       </tr>
@@ -778,20 +887,23 @@ export default function DashboardClient({
                 <tbody>
                   {period.gastos.map((row, i) => {
                     const pct = gastoTotal ? (row.amount / gastoTotal) * 100 : 0;
+                    const pctClamped = Math.min(100, Math.max(0, pct));
                     return (
                       <tr key={i}>
                         <td>{row.name}</td>
                         <td className="right mono">{fmtMoney(row.amount)}</td>
                         <td className="right">
-                          <div className="fin-bar-wrap">
-                            <div
-                              className="fin-bar"
-                              style={{
-                                width: `${Math.max(2, pct)}%`,
-                                background: "var(--red-dot)",
-                              }}
-                            />
-                            <span>
+                          <div className="fin-bar-wrap fin-bar-wrap-track">
+                            <div className="fin-bar-track" aria-hidden="true">
+                              <div
+                                className="fin-bar-fill"
+                                style={{
+                                  width: `${pctClamped}%`,
+                                  background: pctClamped > 0 ? "var(--red-dot)" : "transparent",
+                                }}
+                              />
+                            </div>
+                            <span className="fin-pct">
                               {pct.toLocaleString("es-ES", { maximumFractionDigits: 1 })}%
                             </span>
                           </div>

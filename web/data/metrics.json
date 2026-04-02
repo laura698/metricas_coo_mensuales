@@ -69,8 +69,10 @@
       },
       "projects": [],
       "projectFilterCounts": { "all": 0, "verde": 0, "amarillo": 0, "rojo": 0 },
+      "facturaciones": [],
       "ingresos": [],
       "transversales": [],
+      "pmEvaluaciones": [],
       "gastos": [],
       "resultado": {
         "ingresos": 12800,
@@ -248,6 +250,28 @@
         { "name": "CVI Web", "client": "CVI", "status": "verde" }
       ],
       "projectFilterCounts": { "all": 11, "verde": 4, "amarillo": 6, "rojo": 1 },
+      "facturaciones": [
+        {
+          "nombreProyecto": "Onnia",
+          "aFacturar": 4200,
+          "estado": "pendiente"
+        },
+        {
+          "nombreProyecto": "Pulmeg",
+          "aFacturar": 1800,
+          "estado": "futuro"
+        },
+        {
+          "nombreProyecto": "Orishia",
+          "aFacturar": 950,
+          "estado": "nuevo"
+        },
+        {
+          "nombreProyecto": "Hubsnack",
+          "aFacturar": 240,
+          "estado": "pendiente"
+        }
+      ],
       "ingresos": [
         { "name": "Brinco", "amount": 1400 },
         { "name": "Apacargo", "amount": 750 },
@@ -266,6 +290,29 @@
         { "label": "COO", "gasto": 0 },
         { "label": "CTO", "gasto": 0 },
         { "label": "Ventas", "gasto": 180 }
+      ],
+      "pmEvaluaciones": [
+        {
+          "nombre": "Ana Méndez",
+          "cantidadProyectos": 4,
+          "proyectosAsignados": ["Orishia", "La Valentina", "El Lugar", "Apk Almacenes El Lugar"],
+          "rendimientoCarga": 7.5,
+          "evaluacion": "Buena coordinación con cliente; Orishia requiere seguimiento semanal por riesgo."
+        },
+        {
+          "nombre": "Carlos Ríos",
+          "cantidadProyectos": 3,
+          "proyectosAsignados": ["FastApi", "Uniferaq", "CVI Web"],
+          "rendimientoCarga": 8,
+          "evaluacion": "Cumple entregables; intensificar plan de mitigación en Uniferaq."
+        },
+        {
+          "nombre": "Laura Gómez",
+          "cantidadProyectos": 4,
+          "proyectosAsignados": ["Apacargo", "Brinco", "Carambola", "Grin"],
+          "rendimientoCarga": 8.5,
+          "evaluacion": "Óptima comunicación con equipos; balance de carga aceptable."
+        }
       ],
       "gastos": [
         { "name": "Oficina", "amount": 204 },
