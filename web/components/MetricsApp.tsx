@@ -183,6 +183,11 @@ export default function MetricsApp({ initialData, initialSource = "" }: Props) {
     });
   }, []);
 
+  const dismissPersistFeedback = useCallback(() => {
+    setPersistMsg(null);
+    setPersistExcelUrls(null);
+  }, []);
+
   if (!data) {
     return (
       <div className="shell">
@@ -233,7 +238,19 @@ export default function MetricsApp({ initialData, initialSource = "" }: Props) {
             </button>
           </div>
           {(persistMsg || persistExcelUrls) && (
-            <div className="report-sticky-persist-feedback report-sticky-persist-feedback--below" role="status">
+            <div
+              className="report-sticky-persist-feedback report-sticky-persist-feedback--below"
+              role="status"
+            >
+              <button
+                type="button"
+                className="report-sticky-persist-dismiss"
+                onClick={dismissPersistFeedback}
+                aria-label="Cerrar aviso de guardado"
+                title="Cerrar"
+              >
+                ×
+              </button>
               {persistMsg && <p className="report-sticky-persist-msg">{persistMsg}</p>}
               {persistExcelUrls && (
                 <p className="report-sticky-persist-links">

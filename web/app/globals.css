@@ -1016,12 +1016,35 @@ button:focus-visible {
   cursor: not-allowed;
 }
 .report-sticky-persist-feedback {
+  position: relative;
   margin-top: 10px;
-  padding: 10px 12px;
+  padding: 10px 36px 10px 12px;
   border-radius: 8px;
   border: 1px solid var(--border);
   background: var(--surface);
   max-width: 42rem;
+}
+.report-sticky-persist-dismiss {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  border: none;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--ink3);
+  font-size: 20px;
+  line-height: 1;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.report-sticky-persist-dismiss:hover {
+  background: var(--surface2);
+  color: var(--ink);
 }
 .report-sticky-persist-msg {
   font-size: 12px;
