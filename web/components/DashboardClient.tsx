@@ -12,9 +12,14 @@ import {
   LineElement,
   Filler,
 } from "chart.js";
+import { ChevronDown } from "lucide-react";
 import { Doughnut, Line } from "react-chartjs-2";
+import FinSectionIcon from "@/components/FinSectionIcon";
 import PeriodEditor from "@/components/PeriodEditor";
+import SemaphoreLucideIcon from "@/components/SemaphoreLucideIcon";
+import { parsePctHeadline } from "@/lib/chartSync";
 import { parseHorasFromSemaforo } from "@/lib/horasChart";
+import { useReducedMotion } from "@/lib/useReducedMotion";
 import { gananciaIngresoRow } from "@/lib/ingresoProyecto";
 import { FACTURACION_ESTADO_LABELS } from "@/lib/facturaciones";
 import { normalizeTransversalRows, transversalGastoTotal } from "@/lib/transversales";
@@ -31,23 +36,21 @@ ChartJS.register(
   Filler
 );
 
-const SEM_ICONS: Record<string, string> = {
-  entregas: "📅",
-  riesgo: "⚠️",
-  horas_est_real: "⏱",
-  satisfaccion: "⭐",
-  cobros_pend: "💰",
-  margen_sem: "📊",
-};
+const SEM_ICON_IDS = new Set([
+  "entregas",
+  "riesgo",
+  "horas_est_real",
+  "satisfaccion",
+  "cobros_pend",
+  "margen_sem",
+]);
 
-const SEM_BG: Record<string, string> = {
-  entregas: "#FDEAEA",
-  riesgo: "#FDEAEA",
-  horas_est_real: "#FEF3DC",
-  satisfaccion: "#E8F5E2",
-  cobros_pend: "#FDEAEA",
-  margen_sem: "#FEF3DC",
-};
+/** Clases `sem-icon--*` en globals.css: color de trazo acorde al tinte (legible claro/oscuro). */
+function semIconModifier(semId: string): string {
+  const id = semId.replace(/[^a-z0-9_]/gi, "");
+  if (SEM_ICON_IDS.has(id)) return `sem-icon--${id}`;
+  return "sem-icon--default";
+}
 
 function progColor(t: StatusTone) {
   if (t === "green") return "var(--green-dot)";
@@ -68,21 +71,29 @@ function fmtMoney(n: number) {
 type Props = {
   data: MetricsFile;
   trend: { labels: string[]; entregas: number[] };
-  toolbarAddon?: ReactNode;
-  /** Panel colocado justo después del formulario (p. ej. guardar en nube) y antes del reporte. */
+  /** Controles bajo la barra sticky (origen, guardado, exportar Excel, etc.). */
+  stickyBarAddon?: ReactNode;
+  /** Panel colocado justo después del formulario (p. ej. JSON) y antes del reporte. */
   afterEditorSlot?: ReactNode;
   editMode?: boolean;
   onDataChange?: (next: MetricsFile) => void;
+  /** Hay cambios locales respecto al último guardado/carga. */
+  dirty?: boolean;
+  /** Período mostrado en el selector (para guardar Excel del mes visible). */
+  onSelectedPeriodChange?: (periodId: string) => void;
 };
 
 export default function DashboardClient({
   data,
   trend,
-  toolbarAddon,
+  stickyBarAddon,
   afterEditorSlot,
   editMode,
   onDataChange,
+  dirty = false,
+  onSelectedPeriodChange,
 }: Props) {
+  const reducedMotion = useReducedMotion();
   const periodIds = useMemo(() => Object.keys(data.periods).sort(), [data.periods]);
   const [selectedId, setSelectedId] = useState(data.currentPeriodId);
   const period: PeriodBlock | undefined = data.periods[selectedId];
@@ -92,6 +103,10 @@ export default function DashboardClient({
   useEffect(() => {
     setSelectedId((prev) => (data.periods[prev] ? prev : data.currentPeriodId));
   }, [data]);
+
+  useEffect(() => {
+    onSelectedPeriodChange?.(selectedId);
+  }, [selectedId, onSelectedPeriodChange]);
 
   useEffect(() => {
     const t = setTimeout(() => {
@@ -162,60 +177,92 @@ export default function DashboardClient({
   const horasSlices: [number, number] =
     rawHoras && (rawHoras[0] > 0 || rawHoras[1] > 0) ? rawHoras : [50, 50];
 
+  const entregaSemaforo = period.semaforos.find((x) => x.id === "entregas");
+  const entregaPctParsed = entregaSemaforo ? parsePctHeadline(entregaSemaforo.headline) : null;
+  const showEntregasRetrasoCharts = entregaPctParsed != null;
+  const showHorasDonut = horasPair != null;
+  const animDur = reducedMotion ? 0 : 900;
+
   function toggleSem(id: string) {
     setOpenSem((o) => ({ ...o, [id]: !o[id] }));
   }
 
   return (
     <div className="shell">
-      <div className="toolbar fade-in">
-        <span>Período del reporte:</span>
-        <select
-          value={selectedId}
-          onChange={(e) => setSelectedId(e.target.value)}
-          aria-label="Elegir período"
-        >
-          {periodIds.map((id) => (
-            <option key={id} value={id}>
-              {data.periods[id].label} ({id})
-            </option>
-          ))}
-        </select>
-        <span style={{ opacity: 0.75 }}>
-          {editMode
-            ? "Edita los campos del formulario y, al terminar, usa Guardar abajo."
-            : "Activa «Editar métricas» para modificar con formulario o solo consulta el reporte."}
-        </span>
-        {toolbarAddon}
-      </div>
-
-      {editMode && onDataChange && period && (
-        <PeriodEditor
-          periodId={selectedId}
-          period={period}
-          onChange={(next) =>
-            onDataChange({
-              ...data,
-              periods: { ...data.periods, [selectedId]: next },
-            })
-          }
-        />
+      {dirty && (
+        <div className="unsaved-banner" role="status">
+          Tienes cambios sin guardar: se autoguardarán en este navegador en unos instantes al dejar de editar.
+        </div>
       )}
 
-      <div className="topbar fade-in">
-        <div className="topbar-left">
-          <h1>Reporte operativo</h1>
-          <p>Panel de control COO · Revisión mensual y semanal</p>
-        </div>
-        <div className="topbar-right">
-          <span className="pill">
-            <span className="pill-dot" />
-            Datos {period.label}
-          </span>
-          <span className="period-badge">{period.label}</span>
-        </div>
+      <div className="report-sticky-bar fade-in">
+        <div className="report-sticky-inner report-sticky-inner--toolbar">{stickyBarAddon}</div>
       </div>
 
+      {onDataChange && period && editMode && (
+        <div id="edicion-formulario" className="report-editor-panel fade-in" tabIndex={-1}>
+          <PeriodEditor
+            periodId={selectedId}
+            period={period}
+            onChange={(next) =>
+              onDataChange({
+                ...data,
+                periods: { ...data.periods, [selectedId]: next },
+              })
+            }
+          />
+        </div>
+      )}
+
+      <nav className="report-nav-mobile" aria-label="Atajos de secciones">
+        <a href="#sec-finanzas">Finanzas</a>
+        <a href="#sec-semaforos">Semáforos</a>
+        <a href="#sec-equipo">Equipo</a>
+        <a href="#sec-pm">PM</a>
+        {period.projects.length > 0 && <a href="#sec-proyectos">Proyectos</a>}
+        <a href="#sec-facturaciones">Facturación</a>
+        {(period.ingresos?.length ?? 0) > 0 && (period.gastos?.length ?? 0) > 0 && (
+          <a href="#sec-ingresos">Ingresos</a>
+        )}
+      </nav>
+
+      <div className="report-layout">
+        <nav className="report-nav" aria-label="Secciones del informe">
+          <div className="report-nav-label">Ir a</div>
+          <a href="#sec-finanzas">Finanzas</a>
+          <a href="#sec-semaforos">Semáforos</a>
+          <a href="#sec-equipo">Equipo</a>
+          <a href="#sec-pm">Project Managers</a>
+          {period.projects.length > 0 && <a href="#sec-proyectos">Proyectos</a>}
+          <a href="#sec-facturaciones">Facturación</a>
+          {(period.ingresos?.length ?? 0) > 0 && (period.gastos?.length ?? 0) > 0 && (
+            <a href="#sec-ingresos">Ingresos y gastos</a>
+          )}
+        </nav>
+        <div className="report-main">
+          <header className="report-hero fade-in">
+            <h1>Reporte operativo</h1>
+            <p>Panel de control COO · Revisión mensual y semanal</p>
+            <div className="report-hero-meta">
+              <label className="report-hero-period">
+                <span className="report-hero-period-label">Período del informe</span>
+                <select
+                  className="report-hero-period-select"
+                  value={selectedId}
+                  onChange={(e) => setSelectedId(e.target.value)}
+                  aria-label="Elegir período del reporte"
+                >
+                  {periodIds.map((id) => (
+                    <option key={id} value={id}>
+                      {data.periods[id].label} ({id})
+                    </option>
+                  ))}
+                </select>
+              </label>
+            </div>
+          </header>
+
+          <section id="sec-finanzas" className="report-section">
       <div className="section-label">Métricas financieras</div>
       <div className="kpi-grid">
         {period.kpis.map((k, i) => (
@@ -233,7 +280,9 @@ export default function DashboardClient({
           </div>
         ))}
       </div>
+          </section>
 
+      <section id="sec-semaforos" className="report-section">
       <div className="section-label">Dashboard de semáforos · haz clic para expandir</div>
       <div className="sem-grid">
         {period.semaforos.filter((s) => s.id !== "utilizacion").map((s) => (
@@ -242,6 +291,8 @@ export default function DashboardClient({
             className={`sem-card fade-in${openSem[s.id] ? " open" : ""}`}
             onClick={() => toggleSem(s.id)}
             role="button"
+            aria-expanded={Boolean(openSem[s.id])}
+            aria-label={`${s.title}: ${s.headline}, ${s.statusLabel}. Pulsa para ver detalle.`}
             tabIndex={0}
             onKeyDown={(e) => {
               if (e.key === "Enter" || e.key === " ") {
@@ -252,8 +303,8 @@ export default function DashboardClient({
           >
             <div className="sem-header">
               <div className="sem-header-left">
-                <div className="sem-icon" style={{ background: SEM_BG[s.id] ?? "#F0EEE9" }}>
-                  {SEM_ICONS[s.id] ?? "●"}
+                <div className={`sem-icon ${semIconModifier(s.id)}`}>
+                  <SemaphoreLucideIcon semId={s.id} size={20} />
                 </div>
                 <div>
                   <div className="sem-title">{s.title}</div>
@@ -266,7 +317,7 @@ export default function DashboardClient({
                   <span className="dot" />
                   {s.statusLabel}
                 </span>
-                <span className="chevron">▼</span>
+                <ChevronDown className="sem-chevron-icon" size={18} strokeWidth={2} aria-hidden />
               </div>
             </div>
             <div className="sem-detail">
@@ -307,107 +358,157 @@ export default function DashboardClient({
           </div>
         ))}
       </div>
+      </section>
 
+      <section id="sec-equipo" className="report-section">
       <div className="section-label">Métricas de equipo · visualización</div>
       <div className="charts-grid">
-        <div className="chart-card">
+        <div className="chart-card" role="figure" aria-label="Porcentaje de entregas a tiempo frente a retrasos">
           <div className="chart-title">Entregas a tiempo</div>
           <div className="chart-sub">{period.chartSubtitles?.entregas ?? ""}</div>
           <div className="chart-wrap">
-            <Doughnut
-              key={`e-${period.charts.entregas.join("-")}`}
-              data={{
-                datasets: [
-                  {
-                    data: [...period.charts.entregas],
-                    backgroundColor: ["#4CAF50", "#EF4444"],
-                    borderWidth: 0,
-                    hoverOffset: 4,
-                  },
-                ],
-              }}
-              options={{
-                responsive: true,
-                maintainAspectRatio: false,
-                cutout: "72%",
-                plugins: {
-                  legend: { display: false },
-                  tooltip: {
-                    callbacks: { label: (ctx) => ` ${ctx.raw as number}%` },
-                  },
-                },
-                animation: { animateRotate: true, duration: 900 },
-              }}
-            />
+            {showEntregasRetrasoCharts ? (
+              <>
+                <Doughnut
+                  key={`e-${period.charts.entregas.join("-")}`}
+                  data={{
+                    datasets: [
+                      {
+                        data: [...period.charts.entregas],
+                        backgroundColor: ["#4CAF50", "#EF4444"],
+                        borderWidth: 0,
+                        hoverOffset: 4,
+                      },
+                    ],
+                  }}
+                  options={{
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    cutout: "72%",
+                    plugins: {
+                      legend: { display: false },
+                      tooltip: {
+                        callbacks: { label: (ctx) => ` ${ctx.raw as number}%` },
+                      },
+                    },
+                    animation: { animateRotate: !reducedMotion, duration: animDur },
+                  }}
+                />
+                <div className="chart-legend-row">
+                  <span className="chart-legend-item">
+                    <span className="chart-legend-swatch" style={{ background: "#4CAF50" }} /> A tiempo
+                  </span>
+                  <span className="chart-legend-item">
+                    <span className="chart-legend-swatch" style={{ background: "#EF4444" }} /> Con retraso
+                  </span>
+                </div>
+              </>
+            ) : (
+              <div className="chart-empty">
+                Configura el semáforo «Entregas a tiempo» para generar esta vista.
+              </div>
+            )}
           </div>
         </div>
-        <div className="chart-card">
+        <div className="chart-card" role="figure" aria-label="Porcentaje del mes correspondiente a retrasos">
           <div className="chart-title">Retraso del mes</div>
           <div className="chart-sub">{period.chartSubtitles?.retraso ?? ""}</div>
           <div className="chart-wrap">
-            <Doughnut
-              key={`r-${period.charts.retraso.join("-")}`}
-              data={{
-                datasets: [
-                  {
-                    data: [...period.charts.retraso],
-                    backgroundColor: ["#F59E0B", "#E5E7EB"],
-                    borderWidth: 0,
-                    hoverOffset: 4,
-                  },
-                ],
-              }}
-              options={{
-                responsive: true,
-                maintainAspectRatio: false,
-                cutout: "72%",
-                plugins: {
-                  legend: { display: false },
-                  tooltip: {
-                    callbacks: { label: (ctx) => ` ${ctx.raw as number}%` },
-                  },
-                },
-                animation: { animateRotate: true, duration: 900 },
-              }}
-            />
+            {showEntregasRetrasoCharts ? (
+              <>
+                <Doughnut
+                  key={`r-${period.charts.retraso.join("-")}`}
+                  data={{
+                    datasets: [
+                      {
+                        data: [...period.charts.retraso],
+                        backgroundColor: ["#F59E0B", "#E5E7EB"],
+                        borderWidth: 0,
+                        hoverOffset: 4,
+                      },
+                    ],
+                  }}
+                  options={{
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    cutout: "72%",
+                    plugins: {
+                      legend: { display: false },
+                      tooltip: {
+                        callbacks: { label: (ctx) => ` ${ctx.raw as number}%` },
+                      },
+                    },
+                    animation: { animateRotate: !reducedMotion, duration: animDur },
+                  }}
+                />
+                <div className="chart-legend-row">
+                  <span className="chart-legend-item">
+                    <span className="chart-legend-swatch" style={{ background: "#F59E0B" }} /> Retraso
+                  </span>
+                  <span className="chart-legend-item">
+                    <span className="chart-legend-swatch" style={{ background: "#E5E7EB" }} /> Resto
+                  </span>
+                </div>
+              </>
+            ) : (
+              <div className="chart-empty">
+                Misma fuente que «Entregas»: completá el semáforo de entregas.
+              </div>
+            )}
           </div>
         </div>
-        <div className="chart-card">
+        <div className="chart-card" role="figure" aria-label="Distribución porcentual de horas reales frente a estimadas">
           <div className="chart-title">Horas estimadas vs reales</div>
           <div className="chart-sub">{period.chartSubtitles?.horasEstReal ?? ""}</div>
           <div className="chart-wrap">
-            <Doughnut
-              key={`h-${horasSlices.join("-")}`}
-              data={{
-                datasets: [
-                  {
-                    data: [...horasSlices],
-                    backgroundColor: [...horasColors],
-                    borderWidth: 0,
-                    hoverOffset: 4,
-                  },
-                ],
-              }}
-              options={{
-                responsive: true,
-                maintainAspectRatio: false,
-                cutout: "72%",
-                plugins: {
-                  legend: { display: false },
-                  tooltip: {
-                    callbacks: { label: (ctx) => ` ${ctx.raw as number}%` },
-                  },
-                },
-                animation: { animateRotate: true, duration: 900 },
-              }}
-            />
+            {showHorasDonut ? (
+              <>
+                <Doughnut
+                  key={`h-${horasSlices.join("-")}`}
+                  data={{
+                    datasets: [
+                      {
+                        data: [...horasSlices],
+                        backgroundColor: [...horasColors],
+                        borderWidth: 0,
+                        hoverOffset: 4,
+                      },
+                    ],
+                  }}
+                  options={{
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    cutout: "72%",
+                    plugins: {
+                      legend: { display: false },
+                      tooltip: {
+                        callbacks: { label: (ctx) => ` ${ctx.raw as number}%` },
+                      },
+                    },
+                    animation: { animateRotate: !reducedMotion, duration: animDur },
+                  }}
+                />
+                <div className="chart-legend-row">
+                  <span className="chart-legend-item">
+                    <span className="chart-legend-swatch" style={{ background: horasColors[0] }} /> Principal
+                  </span>
+                  <span className="chart-legend-item">
+                    <span className="chart-legend-swatch" style={{ background: horasColors[1] }} /> Complemento
+                  </span>
+                </div>
+              </>
+            ) : (
+              <div className="chart-empty">
+                Completa el semáforo «Horas estimadas vs reales» (horas del mes).
+              </div>
+            )}
           </div>
         </div>
-        <div className="chart-card wide">
+        <div className="chart-card wide" role="figure" aria-label="Evolución del porcentaje de entregas a tiempo por mes">
           <div className="chart-title">Tendencia mensual</div>
           <div className="chart-sub">Entregas a tiempo (%)</div>
           <div className="chart-wrap" style={{ height: 200 }}>
-            {trendLineValid && (
+            {trendLineValid ? (
               <Line
                 key={trend.labels.join("|")}
                 data={{
@@ -474,21 +575,25 @@ export default function DashboardClient({
                       },
                     },
                   },
-                  animation: { duration: 1000 },
+                  animation: { duration: reducedMotion ? 0 : 1000 },
                 }}
               />
+            ) : (
+              <div className="chart-empty" style={{ minHeight: 180 }}>
+                Añade al menos dos períodos con datos de entregas para ver la tendencia.
+              </div>
             )}
           </div>
         </div>
       </div>
+      </section>
 
+      <section id="sec-pm" className="report-section">
       <div className="section-label">Evaluación de las Project Manager</div>
       <div className="fin-card pm-eval-section fade-in">
         <div className="fin-card-header">
           <div className="fin-card-title">
-            <span className="fin-icon" style={{ background: "#E8EEF9" }}>
-              PM
-            </span>
+            <FinSectionIcon variant="pm" />
             <div>
               <div className="fin-title">Rendimiento y carga</div>
               <div className="fin-sub">
@@ -539,9 +644,10 @@ export default function DashboardClient({
           </table>
         </div>
       </div>
+      </section>
 
       {period.projects.length > 0 && (
-        <>
+        <section id="sec-proyectos" className="report-section">
           <div className="section-label">Listado de proyectos</div>
           <div className="proj-table-wrap fade-in">
             <div className="proj-filters">
@@ -558,21 +664,21 @@ export default function DashboardClient({
                 className={`filter-btn${projFilter === "verde" ? " active" : ""}`}
                 onClick={() => setProjFilter("verde")}
               >
-                🟢 En curso ({counts.verde})
+                <span className="proj-filter-dot proj-filter-dot--verde" aria-hidden /> En curso ({counts.verde})
               </button>
               <button
                 type="button"
                 className={`filter-btn${projFilter === "amarillo" ? " active" : ""}`}
                 onClick={() => setProjFilter("amarillo")}
               >
-                🟡 Atención ({counts.amarillo})
+                <span className="proj-filter-dot proj-filter-dot--amarillo" aria-hidden /> Atención ({counts.amarillo})
               </button>
               <button
                 type="button"
                 className={`filter-btn${projFilter === "rojo" ? " active" : ""}`}
                 onClick={() => setProjFilter("rojo")}
               >
-                🔴 Crítico ({counts.rojo})
+                <span className="proj-filter-dot proj-filter-dot--rojo" aria-hidden /> Crítico ({counts.rojo})
               </button>
             </div>
             <table>
@@ -611,16 +717,15 @@ export default function DashboardClient({
               </tbody>
             </table>
           </div>
-        </>
+        </section>
       )}
 
+      <section id="sec-facturaciones" className="report-section">
       <div className="section-label">Facturaciones</div>
       <div className="fin-card facturaciones-section fade-in">
         <div className="fin-card-header">
           <div className="fin-card-title">
-            <span className="fin-icon" style={{ background: "#F5F0E6" }}>
-              $
-            </span>
+            <FinSectionIcon variant="facturacion" />
             <div>
               <div className="fin-title">Pendiente y planificación</div>
               <div className="fin-sub">Importes a facturar por proyecto y estado</div>
@@ -658,42 +763,33 @@ export default function DashboardClient({
           </table>
         </div>
       </div>
+      </section>
 
       {period.ingresos.length > 0 && period.gastos.length > 0 && (
-        <>
+        <section id="sec-ingresos" className="report-section">
           <div className="section-label">Ingresos y gastos · desglose del mes</div>
           <div
-            className="resultado-card"
-            style={{
-              marginBottom: 14,
-              background: period.resultado.positive ? "var(--green-bg)" : "var(--red-bg)",
-              borderColor: period.resultado.positive
-                ? "rgba(45,106,31,.12)"
-                : "rgba(139,31,31,.12)",
-            }}
+            className={`resultado-card${period.resultado.positive ? " resultado-card--positive" : " resultado-card--negative"}`}
+            style={{ marginBottom: 14 }}
           >
-            <div
-              className="resultado-label"
-              style={{ color: period.resultado.positive ? "var(--green)" : "var(--red)" }}
-            >
-              Resultado neto del período
-            </div>
+            <div className="resultado-label">Resultado neto del período</div>
             <div className="resultado-equation">
               <div className="eq-item">
                 <div className="eq-label">Ingresos</div>
-                <div className="eq-val green-val">{fmtMoney(period.resultado.ingresos)} $</div>
+                <div className="eq-val eq-val--income">{fmtMoney(period.resultado.ingresos)} $</div>
               </div>
               <div className="eq-op">−</div>
               <div className="eq-item">
                 <div className="eq-label">Gastos</div>
-                <div className="eq-val red-val">{fmtMoney(period.resultado.gastos)} $</div>
+                <div className="eq-val eq-val--expense">{fmtMoney(period.resultado.gastos)} $</div>
               </div>
               <div className="eq-op">=</div>
               <div className="eq-item">
                 <div className="eq-label">Resultado</div>
                 <div
-                  className={`eq-val ${period.resultado.positive ? "green-val" : "red-val"}`}
-                  style={{ fontSize: 20 }}
+                  className={
+                    period.resultado.positive ? "eq-val eq-val--result-pos" : "eq-val eq-val--result-neg"
+                  }
                 >
                   {period.resultado.resultado >= 0 ? "+" : ""}
                   {fmtMoney(period.resultado.resultado)} $
@@ -701,13 +797,7 @@ export default function DashboardClient({
               </div>
             </div>
             <div
-              className="resultado-note"
-              style={{
-                color: period.resultado.positive ? "var(--green)" : "var(--red)",
-                borderColor: period.resultado.positive
-                  ? "var(--green-dot)"
-                  : "var(--red-dot)",
-              }}
+              className={`resultado-note${period.resultado.positive ? " resultado-note--positive" : " resultado-note--negative"}`}
             >
               {period.resultado.note}
             </div>
@@ -716,9 +806,7 @@ export default function DashboardClient({
             <div className="fin-card">
               <div className="fin-card-header">
                 <div className="fin-card-title">
-                  <span className="fin-icon" style={{ background: "#E8F5E2" }}>
-                    ↑
-                  </span>
+                  <FinSectionIcon variant="ingresos" />
                   <div>
                     <div className="fin-title">Ingresos</div>
                     <div className="fin-sub">Por proyecto · facturado, gasto y ganancia</div>
@@ -778,21 +866,11 @@ export default function DashboardClient({
                 </tbody>
                 <tfoot>
                   <tr>
-                    <td>
-                      <strong>Totales</strong>
-                    </td>
-                    <td className="right mono">
-                      <strong>{fmtMoney(ingresoTotal)}</strong>
-                    </td>
-                    <td className="right mono">
-                      <strong>{fmtMoney(ingresoGastoTotal)}</strong>
-                    </td>
-                    <td className="right mono">
-                      <strong>{fmtMoney(ingresoGananciaTotal)}</strong>
-                    </td>
-                    <td className="right">
-                      <strong>100%</strong>
-                    </td>
+                    <td>Totales</td>
+                    <td className="right mono">{fmtMoney(ingresoTotal)}</td>
+                    <td className="right mono">{fmtMoney(ingresoGastoTotal)}</td>
+                    <td className="right mono">{fmtMoney(ingresoGananciaTotal)}</td>
+                    <td className="right">100%</td>
                   </tr>
                 </tfoot>
               </table>
@@ -848,13 +926,9 @@ export default function DashboardClient({
                     </tbody>
                     <tfoot>
                       <tr>
-                        <td>
-                          <strong>Totales</strong>
-                        </td>
+                        <td>Totales</td>
                         <td className="right fin-num">{fmtMoney(transversalTotal)}</td>
-                        <td className="right fin-num">
-                          <strong>100%</strong>
-                        </td>
+                        <td className="right fin-num">100%</td>
                       </tr>
                     </tfoot>
                   </table>
@@ -866,9 +940,7 @@ export default function DashboardClient({
             <div className="fin-card">
               <div className="fin-card-header">
                 <div className="fin-card-title">
-                  <span className="fin-icon" style={{ background: "var(--red-bg)" }}>
-                    ↓
-                  </span>
+                  <FinSectionIcon variant="gastos" />
                   <div>
                     <div className="fin-title">Gastos operativos</div>
                     <div className="fin-sub">Costos del período</div>
@@ -914,22 +986,19 @@ export default function DashboardClient({
                 </tbody>
                 <tfoot>
                   <tr>
-                    <td>
-                      <strong>Total gastos</strong>
-                    </td>
-                    <td className="right mono">
-                      <strong>{fmtMoney(gastoTotal)}</strong>
-                    </td>
-                    <td className="right">
-                      <strong>100%</strong>
-                    </td>
+                    <td>Total gastos</td>
+                    <td className="right mono">{fmtMoney(gastoTotal)}</td>
+                    <td className="right">100%</td>
                   </tr>
                 </tfoot>
               </table>
             </div>
           </div>
-        </>
+        </section>
       )}
+
+        </div>
+      </div>
 
       {afterEditorSlot}
 

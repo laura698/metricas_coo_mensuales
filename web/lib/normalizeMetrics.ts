@@ -1,6 +1,7 @@
 import type { MetricsFile, PeriodBlock } from "@/lib/types";
 import { normalizeFacturaciones } from "@/lib/facturaciones";
 import { normalizePmEvaluaciones } from "@/lib/pmEvaluacion";
+import { recalcPeriodSemaforos } from "@/lib/semaforoDerived";
 import { normalizeTransversalRows } from "@/lib/transversales";
 
 /** Rellena campos añadidos en versiones recientes (Blob/Excel antiguos). */
@@ -16,7 +17,7 @@ export function normalizePeriod(p: PeriodBlock): PeriodBlock {
     retraso: p.chartSubtitles?.retraso ?? "",
     horasEstReal: p.chartSubtitles?.horasEstReal ?? "",
   };
-  return {
+  const merged: PeriodBlock = {
     ...p,
     charts,
     chartSubtitles,
@@ -24,6 +25,7 @@ export function normalizePeriod(p: PeriodBlock): PeriodBlock {
     facturaciones: normalizeFacturaciones(p.facturaciones),
     pmEvaluaciones: normalizePmEvaluaciones(p.pmEvaluaciones),
   };
+  return recalcPeriodSemaforos(merged);
 }
 
 export function normalizeMetricsFile(data: MetricsFile): MetricsFile {

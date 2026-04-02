@@ -186,7 +186,8 @@
           },
           "details": [
             { "key": "Clientes evaluados", "value": "5" },
-            { "key": "Tendencia", "value": "→ estable" }
+            { "key": "Tendencia", "value": "→ estable" },
+            { "key": "Nota media (1-5)", "value": "4,5" }
           ]
         },
         {

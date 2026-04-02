@@ -24,10 +24,26 @@ export const metadata: Metadata = {
   description: "Panel de control COO · DClick Soluciones",
 };
 
+/** Debe coincidir con `next.config.mjs` (`NEXT_BASE_PATH`) para que el enlace al CSS de respaldo funcione. */
+const basePath = (process.env.NEXT_BASE_PATH || "").replace(/\/$/, "");
+
 export default function RootLayout({ children }: { children: ReactNode }) {
+  const themeFallbackHref = `${basePath}/api/theme-css`;
   return (
     <html lang="es" className={`${dmSans.variable} ${dmMono.variable}`}>
-      <body className={dmSans.className}>{children}</body>
+      <head>
+        <link rel="stylesheet" href={themeFallbackHref} />
+      </head>
+      {/*
+        Estilos críticos inline: si globals.css no llega (caché .next corrupta, basePath mal configurado),
+        la página no queda en blanco puro. El resto sigue en ./globals.css + /api/theme-css.
+      */}
+      {/*
+        No fijar color/fondo aquí: el modo oscuro usa variables en globals.css; inline ganaría a eso y dejaría texto oscuro sobre tarjetas oscuras.
+      */}
+      <body className={dmSans.className} style={{ fontSize: 14, lineHeight: 1.6, minHeight: "100vh" }}>
+        {children}
+      </body>
     </html>
   );
 }

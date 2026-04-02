@@ -1,20 +1,17 @@
 "use client";
 
 import type { ReactNode } from "react";
-import {
-  recalcProjectCounts,
-  syncChartsFromSemaforos,
-  syncResultadoFromTables,
-} from "@/lib/chartSync";
+import { recalcProjectCounts, syncResultadoFromTables } from "@/lib/chartSync";
 import { gananciaIngresoRow } from "@/lib/ingresoProyecto";
 import { FACTURACION_ESTADO_LABELS } from "@/lib/facturaciones";
 import { clampPmRendimientoCarga } from "@/lib/pmEvaluacion";
+import DerivedSemaforoEditor from "@/components/DerivedSemaforoEditor";
+import { DERIVED_SEMAFORO_IDS, recalcPeriodSemaforos } from "@/lib/semaforoDerived";
 import { normalizeTransversalRows } from "@/lib/transversales";
 import type {
   FacturacionEstado,
   FacturacionRow,
   IngresoProyectoRow,
-  KpiCard,
   MoneyRow,
   PeriodBlock,
   ProjectManagerEvalRow,
@@ -62,298 +59,84 @@ export default function PeriodEditor({ periodId, period, onChange }: Props) {
 
   return (
     <div className="period-editor-wrap fade-in" style={{ marginBottom: 24 }}>
-      <div className="section-label" style={{ marginTop: 16 }}>
+      <div className="section-label" style={{ marginTop: 0 }}>
         Formulario de edición · mes {periodId}
       </div>
-      <p style={{ fontSize: 13, color: "var(--ink2)", marginBottom: 14, lineHeight: 1.55 }}>
-        Elige el mes arriba en &quot;Período del reporte&quot;. Al cambiar un valor, el reporte que sigue debajo se
-        actualiza en vivo. Al final de la página está <strong>Guardar cambios</strong> (nube) y el Excel.
-      </p>
 
-      <div className="pe-section">
-        <h3 className="pe-h3">Cabecera e informes</h3>
-        <div className="pe-grid">
-          {row(
-            "Etiqueta mes",
-            <input style={inp} value={period.label} onChange={(e) => update({ label: e.target.value })} />
-          )}
-          {row(
-            "Pie de página",
-            <input
-              style={inp}
-              value={period.footerTitle}
-              onChange={(e) => update({ footerTitle: e.target.value })}
-            />
-          )}
-          {row(
-            "Subtítulo gráf. entregas",
-            <input
-              style={inp}
-              value={period.chartSubtitles?.entregas ?? ""}
-              onChange={(e) =>
-                update({
-                  chartSubtitles: { ...period.chartSubtitles, entregas: e.target.value },
-                })
-              }
-            />
-          )}
-          {row(
-            "Subtítulo gráf. retraso",
-            <input
-              style={inp}
-              value={period.chartSubtitles?.retraso ?? ""}
-              onChange={(e) =>
-                update({
-                  chartSubtitles: { ...period.chartSubtitles, retraso: e.target.value },
-                })
-              }
-            />
-          )}
-          {row(
-            "Subtítulo gráf. horas est./real",
-            <input
-              style={inp}
-              value={period.chartSubtitles?.horasEstReal ?? ""}
-              onChange={(e) =>
-                update({
-                  chartSubtitles: { ...period.chartSubtitles, horasEstReal: e.target.value },
-                })
-              }
-            />
-          )}
-        </div>
-      </div>
-
-      <div className="pe-section">
-        <h3 className="pe-h3">Datos de tortas (%)</h3>
-        <div className="pe-grid">
-          {row(
-            "Entregas A / B",
-            <div style={{ display: "flex", gap: 8 }}>
+      <details className="pe-accordion" open>
+        <summary className="pe-accordion-summary">Cabecera e informes</summary>
+        <div className="pe-accordion-panel">
+          <div className="pe-grid">
+            {row(
+              "Etiqueta mes",
+              <input style={inp} value={period.label} onChange={(e) => update({ label: e.target.value })} />
+            )}
+            {row(
+              "Pie de página",
               <input
-                type="number"
-                style={{ ...inp, flex: 1 }}
-                value={period.charts?.entregas?.[0] ?? ""}
-                onChange={(e) =>
-                  update({
-                    charts: {
-                      ...period.charts,
-                      entregas: [
-                        Number(e.target.value) || 0,
-                        period.charts?.entregas?.[1] ?? 0,
-                      ] as [number, number],
-                    },
-                  })
-                }
+                style={inp}
+                value={period.footerTitle}
+                onChange={(e) => update({ footerTitle: e.target.value })}
               />
-              <input
-                type="number"
-                style={{ ...inp, flex: 1 }}
-                value={period.charts?.entregas?.[1] ?? ""}
-                onChange={(e) =>
-                  update({
-                    charts: {
-                      ...period.charts,
-                      entregas: [
-                        period.charts?.entregas?.[0] ?? 0,
-                        Number(e.target.value) || 0,
-                      ] as [number, number],
-                    },
-                  })
-                }
-              />
-            </div>
-          )}
-          {row(
-            "Retraso A / B",
-            <div style={{ display: "flex", gap: 8 }}>
-              <input
-                type="number"
-                style={{ ...inp, flex: 1 }}
-                value={period.charts?.retraso?.[0] ?? ""}
-                onChange={(e) =>
-                  update({
-                    charts: {
-                      ...period.charts,
-                      retraso: [
-                        Number(e.target.value) || 0,
-                        period.charts?.retraso?.[1] ?? 0,
-                      ] as [number, number],
-                    },
-                  })
-                }
-              />
-              <input
-                type="number"
-                style={{ ...inp, flex: 1 }}
-                value={period.charts?.retraso?.[1] ?? ""}
-                onChange={(e) =>
-                  update({
-                    charts: {
-                      ...period.charts,
-                      retraso: [
-                        period.charts?.retraso?.[0] ?? 0,
-                        Number(e.target.value) || 0,
-                      ] as [number, number],
-                    },
-                  })
-                }
-              />
-            </div>
-          )}
-          {row(
-            "Horas est./real A / B (%)",
-            <div style={{ display: "flex", gap: 8 }}>
-              <input
-                type="number"
-                style={{ ...inp, flex: 1 }}
-                value={period.charts?.horasEstReal?.[0] ?? ""}
-                onChange={(e) =>
-                  update({
-                    charts: {
-                      ...period.charts,
-                      horasEstReal: [
-                        Number(e.target.value) || 0,
-                        period.charts?.horasEstReal?.[1] ?? 0,
-                      ] as [number, number],
-                    },
-                  })
-                }
-              />
-              <input
-                type="number"
-                style={{ ...inp, flex: 1 }}
-                value={period.charts?.horasEstReal?.[1] ?? ""}
-                onChange={(e) =>
-                  update({
-                    charts: {
-                      ...period.charts,
-                      horasEstReal: [
-                        period.charts?.horasEstReal?.[0] ?? 0,
-                        Number(e.target.value) || 0,
-                      ] as [number, number],
-                    },
-                  })
-                }
-              />
-            </div>
-          )}
-        </div>
-        <button
-          type="button"
-          className="filter-btn"
-          style={{ marginTop: 10 }}
-          onClick={() => onChange(syncChartsFromSemaforos(period))}
-        >
-          Sincronizar tortas (entregas y horas desde semáforos)
-        </button>
-      </div>
-
-      <div className="pe-section">
-        <h3 className="pe-h3">KPIs financieros</h3>
-        {(period.kpis ?? []).map((k: KpiCard, i: number) => (
-          <div
-            key={i}
-            style={{
-              marginBottom: 12,
-              padding: 12,
-              background: "var(--surface2)",
-              borderRadius: 8,
-            }}
-          >
-            <div className="pe-grid" style={{ marginBottom: 8 }}>
-              {row(
-                "Título",
-                <input
-                  style={inp}
-                  value={k.label}
-                  onChange={(e) => {
-                    const kpis = [...(period.kpis ?? [])];
-                    kpis[i] = { ...k, label: e.target.value };
-                    update({ kpis });
-                  }}
-                />
-              )}
-              {row(
-                "Valor",
-                <input
-                  style={inp}
-                  value={k.value}
-                  onChange={(e) => {
-                    const kpis = [...(period.kpis ?? [])];
-                    kpis[i] = { ...k, value: e.target.value };
-                    update({ kpis });
-                  }}
-                />
-              )}
-              {row(
-                "Meta / nota",
-                <input
-                  style={inp}
-                  value={k.meta}
-                  onChange={(e) => {
-                    const kpis = [...(period.kpis ?? [])];
-                    kpis[i] = { ...k, meta: e.target.value };
-                    update({ kpis });
-                  }}
-                />
-              )}
-              {row(
-                "% barra mini",
-                <input
-                  type="number"
-                  style={inp}
-                  value={k.progressPct}
-                  onChange={(e) => {
-                    const kpis = [...(period.kpis ?? [])];
-                    kpis[i] = { ...k, progressPct: Number(e.target.value) || 0 };
-                    update({ kpis });
-                  }}
-                />
-              )}
-              {row(
-                "Variante",
-                <select
-                  style={inp}
-                  value={k.variant}
-                  onChange={(e) => {
-                    const kpis = [...(period.kpis ?? [])];
-                    kpis[i] = { ...k, variant: e.target.value as StatusTone };
-                    update({ kpis });
-                  }}
-                >
-                  {TONES.map((t) => (
-                    <option key={t.value} value={t.value}>
-                      {t.label}
-                    </option>
-                  ))}
-                </select>
-              )}
-            </div>
-            <button
-              type="button"
-              className="filter-btn"
-              style={{ marginTop: 8 }}
-              onClick={() => {
-                const kpis = (period.kpis ?? []).filter((_, j) => j !== i);
-                update({ kpis });
-              }}
-            >
-              Eliminar este KPI
-            </button>
+            )}
           </div>
-        ))}
+        </div>
+      </details>
+
+      <details className="pe-accordion">
+        <summary className="pe-accordion-summary">Gráficas · métricas de equipo</summary>
+        <div className="pe-accordion-panel">
+        <p style={{ fontSize: 12, color: "var(--ink2)", marginBottom: 12, lineHeight: 1.5 }}>
+          Las tres tortas (entregas, retraso, horas) y sus textos bajo el título, así como la línea de tendencia
+          mensual en el informe, se derivan de los semáforos Entregas a tiempo y Horas estimadas vs reales. No se
+          editan a mano: se actualizan al recalcular el período o con el botón de abajo.
+        </p>
+        <div className="pe-grid" style={{ marginBottom: 12 }}>
+          {row(
+            "Subtítulo entregas",
+            <span style={{ fontSize: 13 }}>{period.chartSubtitles?.entregas ?? "—"}</span>
+          )}
+          {row(
+            "Subtítulo retraso",
+            <span style={{ fontSize: 13 }}>{period.chartSubtitles?.retraso ?? "—"}</span>
+          )}
+          {row(
+            "Subtítulo horas est./real",
+            <span style={{ fontSize: 13 }}>{period.chartSubtitles?.horasEstReal ?? "—"}</span>
+          )}
+          {row(
+            "Torta entregas (% A / B)",
+            <span style={{ fontSize: 13 }}>
+              {(period.charts?.entregas ?? [0, 0]).join(" % · ")} %
+            </span>
+          )}
+          {row(
+            "Torta retraso (% A / B)",
+            <span style={{ fontSize: 13 }}>
+              {(period.charts?.retraso ?? [0, 0]).join(" % · ")} %
+            </span>
+          )}
+          {row(
+            "Torta horas est./real (% A / B)",
+            <span style={{ fontSize: 13 }}>
+              {(period.charts?.horasEstReal ?? [0, 0]).join(" % · ")} %
+            </span>
+          )}
+        </div>
         <button
           type="button"
           className="filter-btn"
-          onClick={() => update({ kpis: [...(period.kpis ?? []), emptyKpi()] })}
+          style={{ marginTop: 4 }}
+          onClick={() => onChange(recalcPeriodSemaforos(period))}
         >
-          + Añadir KPI
+          Recalcular gráficas desde semáforos (tortas y subtítulos)
         </button>
-      </div>
+        </div>
+      </details>
 
-      <div className="pe-section">
-        <h3 className="pe-h3">Semáforos</h3>
+      <details className="pe-accordion">
+        <summary className="pe-accordion-summary">Semáforos</summary>
+        <div className="pe-accordion-panel">
         {(period.semaforos ?? []).map((s: SemaforoBlock, si: number) => (
           <div
             key={`${s.id}-${si}`}
@@ -364,6 +147,26 @@ export default function PeriodEditor({ periodId, period, onChange }: Props) {
               borderRadius: 8,
             }}
           >
+            {DERIVED_SEMAFORO_IDS.has(s.id) ? (
+              <>
+                <div style={{ fontSize: 11, color: "var(--ink3)", marginBottom: 8 }}>
+                  Bloque {si + 1} · id: <code>{s.id}</code> · valores calculados automáticamente
+                </div>
+                <DerivedSemaforoEditor period={period} si={si} s={s} onChange={onChange} />
+                <button
+                  type="button"
+                  className="filter-btn"
+                  style={{ marginTop: 12 }}
+                  onClick={() => {
+                    const semaforos = (period.semaforos ?? []).filter((_, j) => j !== si);
+                    update({ semaforos });
+                  }}
+                >
+                  Eliminar semáforo
+                </button>
+              </>
+            ) : (
+              <>
             <div style={{ fontSize: 11, color: "var(--ink3)", marginBottom: 8 }}>
               Bloque {si + 1} · id:{" "}
               <input
@@ -612,6 +415,8 @@ export default function PeriodEditor({ periodId, period, onChange }: Props) {
             >
               Eliminar semáforo
             </button>
+              </>
+            )}
           </div>
         ))}
         <button
@@ -636,10 +441,12 @@ export default function PeriodEditor({ periodId, period, onChange }: Props) {
         >
           + Añadir semáforo
         </button>
-      </div>
+        </div>
+      </details>
 
-      <div className="pe-section">
-        <h3 className="pe-h3">Proyectos</h3>
+      <details className="pe-accordion">
+        <summary className="pe-accordion-summary">Proyectos</summary>
+        <div className="pe-accordion-panel">
         <table style={{ width: "100%", fontSize: 13 }}>
           <thead>
             <tr>
@@ -722,10 +529,12 @@ export default function PeriodEditor({ periodId, period, onChange }: Props) {
         >
           + Proyecto
         </button>
-      </div>
+        </div>
+      </details>
 
-      <div className="pe-section">
-        <h3 className="pe-h3">Facturaciones</h3>
+      <details className="pe-accordion">
+        <summary className="pe-accordion-summary">Facturaciones</summary>
+        <div className="pe-accordion-panel">
         <p style={{ fontSize: 12, color: "var(--ink2)", marginBottom: 10, maxWidth: "42rem" }}>
           Proyecto, importe a facturar y estado: pendiente por facturar, factura a futuro o proyecto nuevo.
         </p>
@@ -821,13 +630,15 @@ export default function PeriodEditor({ periodId, period, onChange }: Props) {
         >
           + Línea de facturación
         </button>
-      </div>
+        </div>
+      </details>
 
-      <div className="pe-section">
-        <h3 className="pe-h3">Evaluación de las Project Manager</h3>
+      <details className="pe-accordion">
+        <summary className="pe-accordion-summary">Evaluación de las Project Manager</summary>
+        <div className="pe-accordion-panel">
         <p style={{ fontSize: 12, color: "var(--ink2)", marginBottom: 10, maxWidth: "42rem" }}>
-          Incluye puntuación de rendimiento y carga del PM en escala <strong>5 a 10</strong>, además de
-          proyectos (coma) y evaluación cualitativa.
+          Incluye puntuación de rendimiento y carga del PM en escala 5 a 10, además de proyectos (coma) y evaluación
+          cualitativa.
         </p>
         <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12 }}>
           <thead>
@@ -953,10 +764,12 @@ export default function PeriodEditor({ periodId, period, onChange }: Props) {
         >
           + Project Manager
         </button>
-      </div>
+        </div>
+      </details>
 
-      <div className="pe-section">
-        <h3 className="pe-h3">Ingresos y gastos</h3>
+      <details className="pe-accordion">
+        <summary className="pe-accordion-summary">Ingresos y gastos</summary>
+        <div className="pe-accordion-panel">
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
           <div>
             <strong style={{ fontSize: 12 }}>Ingresos por proyecto</strong>
@@ -1156,10 +969,12 @@ export default function PeriodEditor({ periodId, period, onChange }: Props) {
             </button>
           </div>
         </div>
-      </div>
+        </div>
+      </details>
 
-      <div className="pe-section">
-        <h3 className="pe-h3">Resultado del período</h3>
+      <details className="pe-accordion">
+        <summary className="pe-accordion-summary">Resultado del período</summary>
+        <div className="pe-accordion-panel">
         <p style={{ fontSize: 11, color: "var(--ink3)", marginBottom: 8 }}>
           Se recalcula automáticamente al editar tablas de ingresos/gastos. Aquí puedes ajustarlo a mano o el texto
           de la nota.
@@ -1274,17 +1089,8 @@ export default function PeriodEditor({ periodId, period, onChange }: Props) {
         <button type="button" className="filter-btn" onClick={() => onChange(syncResultadoFromTables(period))}>
           Recalcular resultado desde sumas de tablas
         </button>
-      </div>
+        </div>
+      </details>
     </div>
   );
-}
-
-function emptyKpi(): KpiCard {
-  return {
-    label: "Nuevo KPI",
-    value: "0",
-    meta: "",
-    progressPct: 0,
-    variant: "amber",
-  };
 }

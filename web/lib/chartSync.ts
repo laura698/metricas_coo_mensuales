@@ -8,7 +8,43 @@ export function parsePctHeadline(s: string): number | null {
   return Number.isFinite(n) ? n : null;
 }
 
-/** Ajusta tortas entregas / retraso / horas desde semáforos. */
+function detailByKey(
+  details: { key: string; value: string }[] | undefined,
+  key: string
+): string {
+  return details?.find((d) => d.key === key)?.value ?? "";
+}
+
+function fmtIntEs(n: number): string {
+  return Math.round(n).toLocaleString("es-ES");
+}
+
+/** Subtítulos bajo las tortas y la tendencia, a partir de detalle de semáforos. */
+function syncChartSubtitlesFromSemaforos(period: PeriodBlock): PeriodBlock["chartSubtitles"] {
+  const prev = period.chartSubtitles ?? {
+    entregas: "",
+    retraso: "",
+    horasEstReal: "",
+  };
+  const entS = period.semaforos?.find((x) => x.id === "entregas");
+  let entregas = prev.entregas;
+  let retraso = prev.retraso;
+  if (entS?.details?.length) {
+    const at = detailByKey(entS.details, "Entregadas a tiempo");
+    const ret = detailByKey(entS.details, "Con retraso");
+    const tot = detailByKey(entS.details, "Entregas totales");
+    entregas = `${at} a tiempo · ${ret} con retraso`;
+    retraso = `${ret} con retraso de ${tot} totales`;
+  }
+  let horasEstReal = prev.horasEstReal;
+  const hrs = parseHorasFromSemaforo(period);
+  if (hrs) {
+    horasEstReal = `${fmtIntEs(hrs.real)} h reales · ${fmtIntEs(hrs.est)} h estimadas`;
+  }
+  return { entregas, retraso, horasEstReal };
+}
+
+/** Ajusta tortas entregas / retraso / horas y subtítulos desde semáforos. */
 export function syncChartsFromSemaforos(period: PeriodBlock): PeriodBlock {
   const ent = period.semaforos.find((x) => x.id === "entregas");
   const e = ent ? parsePctHeadline(ent.headline) : null;
@@ -24,7 +60,8 @@ export function syncChartsFromSemaforos(period: PeriodBlock): PeriodBlock {
     const sl = horasSlicesFromNumbers(hrs.est, hrs.real);
     if (sl) charts.horasEstReal = sl;
   }
-  return { ...period, charts };
+  const chartSubtitles = syncChartSubtitlesFromSemaforos({ ...period, charts });
+  return { ...period, charts, chartSubtitles };
 }
 
 /** Resultado neto coherente con la suma de filas de ingresos y gastos. */

@@ -1,10 +1,18 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { persistMetricsToCloud } from "@/app/actions/persistMetrics";
 import DashboardClient from "@/components/DashboardClient";
+import {
+  clearMetricsFromBrowser,
+  loadMetricsFromBrowser,
+  saveMetricsToBrowser,
+} from "@/lib/metricsLocalStorage";
 import { normalizeMetricsFile } from "@/lib/normalizeMetrics";
 import { getTrendSeries } from "@/lib/trend";
 import type { MetricsFile } from "@/lib/types";
+
+const AUTOSAVE_MS = 450;
 
 type Props = {
   /** Rellenado en el servidor: evita pantalla “Cargando…” si el cliente no puede hacer fetch. */
@@ -16,17 +24,70 @@ export default function MetricsApp({ initialData, initialSource = "" }: Props) {
   const [data, setData] = useState<MetricsFile | null>(() => initialData);
   const [source, setSource] = useState<string>(() => initialSource);
   const [loadErr, setLoadErr] = useState<string | null>(null);
-  const [saving, setSaving] = useState(false);
   const [saveMsg, setSaveMsg] = useState<string | null>(null);
-  const [secret, setSecret] = useState("");
-  /** Por defecto el formulario visible: edición “normal”, sin JSON. */
-  const [editOpen, setEditOpen] = useState(true);
+  /** Mes mostrado en el informe (selector de período); define qué hoja `mes-*.xlsx` se genera al guardar en nube. */
+  const [selectedPeriodId, setSelectedPeriodId] = useState<string>(
+    () => initialData?.currentPeriodId ?? ""
+  );
+  const [persisting, setPersisting] = useState(false);
+  const [persistMsg, setPersistMsg] = useState<string | null>(null);
+  const [persistExcelUrls, setPersistExcelUrls] = useState<{
+    full: string;
+    month: string;
+  } | null>(null);
+  /** Formulario de acordeones: cerrado hasta pulsar «Editar datos». */
+  const [editOpen, setEditOpen] = useState(false);
   const [jsonDraft, setJsonDraft] = useState(() =>
     initialData ? JSON.stringify(initialData, null, 2) : ""
   );
 
   const dataRef = useRef<MetricsFile | null>(initialData);
   dataRef.current = data;
+
+  const autosaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  /** Línea base para detectar cambios sin guardar (JSON del tablero / último guardado local). */
+  const baselineRef = useRef<string>(initialData ? JSON.stringify(initialData) : "");
+  useEffect(() => {
+    if (initialData) baselineRef.current = JSON.stringify(initialData);
+  }, [initialData]);
+
+  const isDirty = useMemo(() => {
+    if (!data) return false;
+    return JSON.stringify(data) !== baselineRef.current;
+  }, [data]);
+
+  const persistToBrowser = useCallback((metrics: MetricsFile) => {
+    saveMetricsToBrowser(metrics);
+    baselineRef.current = JSON.stringify(metrics);
+    setJsonDraft(JSON.stringify(metrics, null, 2));
+  }, []);
+
+  const handleDataChange = useCallback(
+    (next: MetricsFile) => {
+      setData(next);
+      if (autosaveTimerRef.current) clearTimeout(autosaveTimerRef.current);
+      autosaveTimerRef.current = setTimeout(() => {
+        autosaveTimerRef.current = null;
+        persistToBrowser(next);
+      }, AUTOSAVE_MS);
+    },
+    [persistToBrowser]
+  );
+
+  useEffect(() => {
+    return () => {
+      if (autosaveTimerRef.current) clearTimeout(autosaveTimerRef.current);
+    };
+  }, []);
+
+  const applyLocalSnapshot = useCallback((metrics: MetricsFile, label: string) => {
+    const n = normalizeMetricsFile(metrics);
+    setData(n);
+    baselineRef.current = JSON.stringify(n);
+    setSource(label);
+    setJsonDraft(JSON.stringify(n, null, 2));
+  }, []);
 
   const fetchMetrics = useCallback(async () => {
     setLoadErr(null);
@@ -42,21 +103,31 @@ export default function MetricsApp({ initialData, initialSource = "" }: Props) {
         throw new Error(String((raw as { error?: string }).error ?? "error API"));
       }
       const j = normalizeMetricsFile(raw as MetricsFile);
-      setData(j);
-      setSource(res.headers.get("X-Metrics-Source") || "");
-      setJsonDraft(JSON.stringify(j, null, 2));
+      const local = loadMetricsFromBrowser();
+      if (local) {
+        applyLocalSnapshot(local.metrics, "Copia en este navegador");
+      } else {
+        setData(j);
+        baselineRef.current = JSON.stringify(j);
+        const src = res.headers.get("X-Metrics-Source") || "";
+        setSource(src === "blob" ? "Vercel Blob" : src === "repo" ? "Repositorio (build)" : src || "Servidor");
+        setJsonDraft(JSON.stringify(j, null, 2));
+      }
     } catch (e) {
       const aborted = e instanceof Error && e.name === "AbortError";
       const msg = aborted
-        ? "Tiempo de espera agotado. Reintenta o revisa la red y variables (Blob). En local: npm run dev en la carpeta web."
+        ? "Tiempo de espera agotado. Reintenta o revisa la red. En local: npm run dev en la carpeta web."
         : "No se pudieron cargar las métricas desde el navegador. Si ya ves el tablero, puedes ignorar este aviso.";
-      if (dataRef.current == null) {
+      const local = loadMetricsFromBrowser();
+      if (local && dataRef.current == null) {
+        applyLocalSnapshot(local.metrics, "Copia en este navegador (sin conexión al servidor)");
+      } else if (dataRef.current == null) {
         setLoadErr(msg);
       }
     } finally {
       clearTimeout(t);
     }
-  }, []);
+  }, [applyLocalSnapshot]);
 
   useEffect(() => {
     fetchMetrics();
@@ -64,49 +135,53 @@ export default function MetricsApp({ initialData, initialSource = "" }: Props) {
 
   const trend = useMemo(() => (data ? getTrendSeries(data) : { labels: [], entregas: [] }), [data]);
 
-  async function saveToBlob(payload: MetricsFile) {
-    setSaveMsg(null);
-    if (!secret.trim()) {
-      setSaveMsg("Escribe la contraseña de guardado (SAVE_METRICS_SECRET en el servidor).");
-      return;
-    }
-    setSaving(true);
-    try {
-      const res = await fetch("/api/metrics", {
-        method: "PUT",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${secret.trim()}`,
-        },
-        body: JSON.stringify(payload),
-      });
-      const body = await res.json().catch(() => ({}));
-      if (!res.ok) {
-        setSaveMsg(typeof body.error === "string" ? body.error : "Error al guardar");
-        return;
-      }
-      setData(payload);
-      setJsonDraft(JSON.stringify(payload, null, 2));
-      setSaveMsg("Cambios guardados correctamente en la nube.");
-      setSource("blob");
-      await fetchMetrics();
-    } catch {
-      setSaveMsg("Error de red al guardar.");
-    } finally {
-      setSaving(false);
-    }
-  }
-
   function applyJsonToBoard() {
     setSaveMsg(null);
     try {
       const parsed = normalizeMetricsFile(JSON.parse(jsonDraft) as MetricsFile);
       setData(parsed);
-      setSaveMsg("JSON aplicado. Revisa el reporte y pulsa Guardar si quieres subirlo a la nube.");
+      persistToBrowser(parsed);
+      setSaveMsg("JSON aplicado al tablero y guardado en el navegador.");
     } catch {
       setSaveMsg("El JSON no es válido.");
     }
   }
+
+  async function persistToCloud() {
+    if (!data) return;
+    const periodId = selectedPeriodId || data.currentPeriodId;
+    setPersisting(true);
+    setPersistMsg(null);
+    setPersistExcelUrls(null);
+    try {
+      const r = await persistMetricsToCloud(data, periodId);
+      if (!r.ok) {
+        setPersistMsg(r.error);
+        return;
+      }
+      setPersistExcelUrls({ full: r.excelFullUrl, month: r.excelMonthUrl });
+      setPersistMsg("Guardado persistente: JSON y Excel en Vercel Blob.");
+      clearMetricsFromBrowser();
+      baselineRef.current = JSON.stringify(data);
+      setSource("Vercel Blob");
+      await fetchMetrics();
+    } catch (e) {
+      setPersistMsg(e instanceof Error ? e.message : "Error al guardar en la nube.");
+    } finally {
+      setPersisting(false);
+    }
+  }
+
+  const toggleEditPanel = useCallback(() => {
+    setEditOpen((o) => {
+      if (!o) {
+        requestAnimationFrame(() =>
+          document.getElementById("edicion-formulario")?.scrollIntoView({ behavior: "smooth", block: "start" })
+        );
+      }
+      return !o;
+    });
+  }, []);
 
   if (!data) {
     return (
@@ -129,110 +204,56 @@ export default function MetricsApp({ initialData, initialSource = "" }: Props) {
       data={data}
       trend={trend}
       editMode={editOpen}
-      onDataChange={setData}
-      toolbarAddon={
-        <div style={{ width: "100%", marginTop: 10, display: "flex", flexDirection: "column", gap: 10 }}>
-          <div style={{ display: "flex", flexWrap: "wrap", gap: 8, alignItems: "center" }}>
-            <span style={{ fontSize: 11, opacity: 0.85 }}>
-              Origen: <strong>{source === "blob" ? "Vercel Blob" : "Repositorio (build)"}</strong>
-            </span>
-            <a
-              href="/api/metrics/excel"
-              className="filter-btn active"
-              style={{ textDecoration: "none", display: "inline-block" }}
+      onDataChange={handleDataChange}
+      dirty={isDirty}
+      onSelectedPeriodChange={setSelectedPeriodId}
+      stickyBarAddon={
+        <>
+          <div className="report-toolbar-row">
+            <button
+              type="button"
+              className="report-sticky-btn report-sticky-btn--cloud"
+              onClick={() => void persistToCloud()}
+              disabled={persisting || !data}
+              title="Sube JSON y Excel a Vercel Blob"
             >
-              Descargar Excel
+              {persisting ? "Guardando…" : "Guardar en la nube"}
+            </button>
+            <a href="/api/metrics/excel" className="report-sticky-btn report-sticky-btn--export">
+              Exportar
             </a>
             <button
               type="button"
-              className={`filter-btn${editOpen ? " active" : ""}`}
-              onClick={() => setEditOpen((o) => !o)}
+              className={`report-sticky-btn${editOpen ? " report-sticky-btn--solid" : ""}`}
+              onClick={() => toggleEditPanel()}
+              aria-expanded={editOpen}
+              title={editOpen ? "Ocultar el formulario de edición" : "Mostrar el formulario de edición debajo"}
             >
-              {editOpen ? "Ocultar formulario de edición" : "Editar métricas (formulario)"}
+              {editOpen ? "Cerrar edición" : "Editar datos"}
             </button>
           </div>
-        </div>
+          {(persistMsg || persistExcelUrls) && (
+            <div className="report-sticky-persist-feedback report-sticky-persist-feedback--below" role="status">
+              {persistMsg && <p className="report-sticky-persist-msg">{persistMsg}</p>}
+              {persistExcelUrls && (
+                <p className="report-sticky-persist-links">
+                  Excel en la nube:{" "}
+                  <a href={persistExcelUrls.full} target="_blank" rel="noreferrer">
+                    libro completo
+                  </a>
+                  {" · "}
+                  <a href={persistExcelUrls.month} target="_blank" rel="noreferrer">
+                    solo mes {selectedPeriodId || data.currentPeriodId}
+                  </a>
+                </p>
+              )}
+            </div>
+          )}
+        </>
       }
       afterEditorSlot={
         <div style={{ marginTop: 32, marginBottom: 20 }}>
-          <div
-            style={{
-              padding: 16,
-              background: "var(--surface2)",
-              borderRadius: 12,
-              border: "1px solid var(--border)",
-              maxWidth: 720,
-            }}
-          >
-            <h3 style={{ fontSize: 13, fontWeight: 500, marginBottom: 10, color: "var(--ink)" }}>
-              Guardar cambios en internet
-            </h3>
-            <p style={{ fontSize: 12, color: "var(--ink2)", marginBottom: 0, lineHeight: 1.5 }}>
-              Lo que ves en pantalla (gráficas y tablas) es lo que se sube. Solo necesario si despliegas en Vercel con
-              Blob: variables <code style={{ fontSize: 11 }}>BLOB_READ_WRITE_TOKEN</code> y{" "}
-              <code style={{ fontSize: 11 }}>SAVE_METRICS_SECRET</code>
-              . En local puedes ignorar esto y editar <code style={{ fontSize: 11 }}>data/metrics.json</code>.
-            </p>
-            <div
-              style={{
-                display: "flex",
-                flexDirection: "column",
-                alignItems: "stretch",
-                gap: 10,
-                marginTop: 14,
-              }}
-            >
-              <label style={{ fontSize: 12, color: "var(--ink2)", margin: 0 }}>
-                Contraseña de guardado
-              </label>
-              <input
-                type="password"
-                value={secret}
-                onChange={(e) => setSecret(e.target.value)}
-                autoComplete="off"
-                placeholder="SAVE_METRICS_SECRET"
-                style={{
-                  display: "block",
-                  boxSizing: "border-box",
-                  width: "100%",
-                  padding: "8px 12px",
-                  borderRadius: 8,
-                  border: "1px solid var(--border2)",
-                  fontFamily: "inherit",
-                  fontSize: 14,
-                }}
-              />
-              <button
-                type="button"
-                className="filter-btn active"
-                disabled={saving}
-                onClick={() => saveToBlob(data)}
-                style={{
-                  padding: "8px 18px",
-                  fontSize: 14,
-                  alignSelf: "flex-start",
-                }}
-              >
-                {saving ? "Guardando…" : "Guardar cambios"}
-              </button>
-            </div>
-            {saveMsg && (
-              <p
-                style={{
-                  fontSize: 13,
-                  marginTop: 12,
-                  color:
-                    saveMsg.includes("correctamente") || saveMsg.includes("aplicado") || saveMsg.includes("Cambios guardados")
-                      ? "var(--green)"
-                      : "var(--red)",
-                }}
-              >
-                {saveMsg}
-              </p>
-            )}
-          </div>
-
-          <details style={{ marginTop: 14, maxWidth: 720 }} className="tech-json-details">
+          <details style={{ maxWidth: 720 }} className="tech-json-details">
             <summary
               style={{
                 fontSize: 12,
@@ -279,6 +300,21 @@ export default function MetricsApp({ initialData, initialSource = "" }: Props) {
               >
                 Descartar y cargar desde tablero
               </button>
+              {saveMsg && (
+                <p
+                  style={{
+                    fontSize: 13,
+                    marginTop: 12,
+                    marginBottom: 0,
+                    color:
+                      saveMsg.includes("aplicado") && !saveMsg.includes("no es válido")
+                        ? "var(--green)"
+                        : "var(--red)",
+                  }}
+                >
+                  {saveMsg}
+                </p>
+              )}
             </div>
           </details>
         </div>

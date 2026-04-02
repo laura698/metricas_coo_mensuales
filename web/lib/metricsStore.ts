@@ -8,6 +8,28 @@ export function getBlobPathname(): string {
   return process.env.METRICS_BLOB_PATHNAME?.trim() || "coo-metricas/metrics.json";
 }
 
+/** Carpeta lógica para Excel en Blob: mismo prefijo que el JSON, subcarpeta `excel`. */
+export function getExcelBlobPrefix(): string {
+  const jsonPath = getBlobPathname();
+  const i = jsonPath.lastIndexOf("/");
+  const dir = i >= 0 ? jsonPath.slice(0, i) : "coo-metricas";
+  return `${dir}/excel`;
+}
+
+export async function saveExcelBufferToBlob(pathname: string, buffer: Buffer): Promise<{ url: string }> {
+  const token = process.env.BLOB_READ_WRITE_TOKEN;
+  if (!token) {
+    throw new Error("Falta BLOB_READ_WRITE_TOKEN");
+  }
+  const blob = await put(pathname, buffer, {
+    access: "public",
+    token,
+    addRandomSuffix: false,
+    contentType: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+  });
+  return { url: blob.url };
+}
+
 export type MetricsSource = "blob" | "repo";
 
 const BLOB_FETCH_MS = 12_000;

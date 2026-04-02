@@ -159,6 +159,18 @@ export function buildMetricsWorkbookBuffer(data: MetricsFile): Buffer {
   return XLSX.write(wb, { type: "buffer", bookType: "xlsx" }) as Buffer;
 }
 
+/** Libro con una sola hoja de mes (además de `_Control`), útil para archivo por mes en Blob. */
+export function buildMetricsWorkbookForSinglePeriod(data: MetricsFile, periodId: string): Buffer {
+  if (!data.periods[periodId]) {
+    throw new Error(`No existe el período ${periodId} en los datos`);
+  }
+  const single: MetricsFile = {
+    currentPeriodId: periodId,
+    periods: { [periodId]: data.periods[periodId] },
+  };
+  return buildMetricsWorkbookBuffer(single);
+}
+
 function cellStr(v: unknown): string {
   if (v === undefined || v === null) return "";
   return String(v).trim();
